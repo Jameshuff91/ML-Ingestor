@@ -17,6 +17,7 @@ from src.correlation import CorrelationAnalyzer
 from src.export import DataExporter
 from src.config import ConfigManager
 from src.logger import setup_logger
+from src.llm import call_claude_api
 
 # Initialize Flask app and SocketIO
 app = Flask(__name__)
@@ -207,10 +208,10 @@ def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
         if config.get('generate_erd', False):
             try:
                 erd_path = get_plot_path(f'erd_{task_id}')
-                dot_path = get_plot_path(f'erd_{task_id}', '.dot')
-                erd_path = erd_generator.generate(df, dot_path=dot_path, png_path=erd_path)
+                orientation = config.get('erd_orientation', 'LR')  # Default to left-to-right
+                erd_path = erd_generator.generate_erd(df, filename, orientation=orientation)
                 update_task_status(task_id, {
-                    'results': {'erd_path': os.path.join('static', 'plots', os.path.basename(erd_path))},
+                    'results': {'erd_path': erd_path},
                     'task_id': task_id
                 })
             except Exception as e:
@@ -403,6 +404,51 @@ def api_docs():
 def websocket():
     """WebSocket endpoint."""
     return '', 101  # Switch protocols
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """Handle chat requests using Claude API."""
+    try:
+        data = request.get_json()
+        task_id = data.get('task_id')
+        user_message = data.get('message')
+        
+        if not task_id or not user_message:
+            return jsonify({'success': False, 'error': 'Missing task_id or message'}), 400
+            
+        # Get task results
+        with task_lock:
+            task = tasks.get(task_id)
+            if not task:
+                return jsonify({'success': False, 'error': 'Task not found'}), 404
+                
+            results = task.get('results', {})
+            
+        # Prepare context for Claude
+        context = f"""
+        Here is the data analysis context:
+        
+        Validation Results:
+        {results.get('validation', {})}
+        
+        Correlation Analysis:
+        {results.get('correlation', {})}
+        
+        User Question: {user_message}
+        """
+        
+        # Call Claude API with the context
+        system_content = "You are an AI assistant helping analyze data processing results. Provide clear, concise answers based on the data analysis context provided."
+        response = call_claude_api(context, system_content)
+        
+        return jsonify({
+            'success': True,
+            'response': response
+        })
+        
+    except Exception as e:
+        logger.error(f"Chat request failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 class WebSocket:
     """WebSocket handler for real-time updates."""

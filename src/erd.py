@@ -10,20 +10,21 @@ class ERDGenerator:
         """Initialize the ERD Generator."""
         pass
         
-    def generate_erd(self, df: pd.DataFrame, filename: str) -> str:
+    def generate_erd(self, df: pd.DataFrame, filename: str, orientation: str = 'LR') -> str:
         """
         Generate an ERD from a pandas DataFrame.
         
         Args:
             df: The DataFrame to analyze
             filename: Original filename for naming the output file
+            orientation: Graph orientation ('LR' for left-to-right, 'TB' for top-to-bottom)
         
         Returns:
             str: Path to the generated ERD image file
         """
         # Create a graph
         dot = graphviz.Digraph(comment=f'ERD for {filename}')
-        dot.attr(rankdir='LR')
+        dot.attr(rankdir=orientation)
         
         # Add table node
         table_name = os.path.splitext(filename)[0]

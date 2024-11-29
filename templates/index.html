@@ -106,6 +106,9 @@
                     <button onclick="showTab('erd')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="erd">
                         ERD
                     </button>
+                    <button onclick="showTab('chat')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="chat">
+                        Chat Analysis
+                    </button>
                 </nav>
             </div>
             
@@ -124,8 +127,43 @@
                 
                 <div id="erd-tab" class="tab-content hidden">
                     <div id="erd-results">
-                        <img id="erd-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Entity-Relationship Diagram">
+                        <div class="mb-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <button onclick="rotateERD(-90)" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md">
+                                    <i class="fas fa-undo"></i> Rotate Left
+                                </button>
+                                <button onclick="rotateERD(90)" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md">
+                                    <i class="fas fa-redo"></i> Rotate Right
+                                </button>
+                            </div>
+                            <div>
+                                <label class="px-3 py-1 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md cursor-pointer">
+                                    <i class="fas fa-upload"></i> Upload Custom ERD
+                                    <input type="file" id="custom-erd-input" class="hidden" accept="image/*">
+                                </label>
+                            </div>
+                        </div>
+                        <div id="erd-container" class="relative">
+                            <img id="erd-image" class="hidden max-w-full h-auto rounded shadow-lg transform transition-transform duration-300" alt="Entity-Relationship Diagram">
+                        </div>
                         <div id="erd-error" class="hidden text-red-600"></div>
+                    </div>
+                </div>
+                
+                <div id="chat-tab" class="tab-content hidden">
+                    <div class="flex flex-col h-[500px]">
+                        <!-- Chat Messages -->
+                        <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
+                            <!-- Messages will be inserted here -->
+                        </div>
+                        
+                        <!-- Chat Input -->
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="chat-input" class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ask about your data analysis...">
+                            <button id="send-chat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Send
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -636,6 +674,95 @@
         .catch(error => {
             showToast('Export failed: ' + error, 'error');
         });
+    });
+
+    // ERD Image Rotation and Upload
+    let currentRotation = 0;
+
+    function rotateERD(degrees) {
+        currentRotation = (currentRotation + degrees) % 360;
+        const erdImage = document.getElementById('erd-image');
+        erdImage.style.transform = `rotate(${currentRotation}deg)`;
+    }
+
+    // Handle custom ERD upload
+    document.getElementById('custom-erd-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const erdImage = document.getElementById('erd-image');
+                erdImage.src = e.target.result;
+                erdImage.classList.remove('hidden');
+                // Reset rotation when new image is uploaded
+                currentRotation = 0;
+                erdImage.style.transform = '';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Chat functionality
+    const chatInput = document.getElementById('chat-input');
+    const sendChatButton = document.getElementById('send-chat');
+    const chatMessages = document.getElementById('chat-messages');
+    
+    function addChatMessage(message, isUser = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `mb-4 ${isUser ? 'text-right' : ''}`;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `inline-block rounded-lg px-4 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200'}`;
+        bubble.textContent = message;
+        
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    async function handleChatSubmit() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        if (!currentTaskId) {
+            addChatMessage('Please process some data first before starting a chat.', false);
+            return;
+        }
+        
+        // Add user message
+        addChatMessage(message, true);
+        chatInput.value = '';
+        
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    task_id: currentTaskId
+                })
+            });
+            
+            if (!response.ok) throw new Error('Chat request failed');
+            
+            const data = await response.json();
+            addChatMessage(data.response, false);
+        } catch (error) {
+            addChatMessage('Sorry, there was an error processing your message.', false);
+            console.error('Chat error:', error);
+        }
+    }
+    
+    sendChatButton.addEventListener('click', handleChatSubmit);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleChatSubmit();
     });
 </script>
 {% endblock %}
