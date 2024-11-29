@@ -464,25 +464,28 @@
         // Display validation results
         const validationResults = results.validation;
         if (validationResults) {
-            const validationHtml = Object.entries(validationResults)
-                .map(([key, value], index) => {
-                    const sectionId = `validation-section-${index}`;
-                    return `
-                        <div class="mb-4 bg-gray-50 rounded-lg">
-                            <button class="flex justify-between w-full text-lg font-semibold bg-gray-100 p-3 rounded-t hover:bg-gray-200 focus:outline-none" 
-                                    onclick="toggleSection('${sectionId}')">
-                                <span>${key.replace(/_/g, ' ').toUpperCase()}</span>
-                                <span class="transform transition-transform duration-200" id="${sectionId}-arrow">▼</span>
-                            </button>
-                            <div id="${sectionId}" class="transition-all duration-200 overflow-hidden">
-                                <div class="p-4">
-                                    <pre class="whitespace-pre-wrap font-mono text-sm">${formatValue(value)}</pre>
+            const validationHtml = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${Object.entries(validationResults)
+                        .map(([key, value], index) => {
+                            const sectionId = `validation-section-${index}`;
+                            return `
+                                <div class="bg-gray-50 rounded-lg">
+                                    <button class="flex justify-between w-full text-lg font-semibold bg-gray-100 p-3 rounded-t hover:bg-gray-200 focus:outline-none" 
+                                            onclick="toggleSection('${sectionId}')">
+                                        <span>${key.replace(/_/g, ' ').toUpperCase()}</span>
+                                        <span class="transform transition-transform duration-200" id="${sectionId}-arrow">▼</span>
+                                    </button>
+                                    <div id="${sectionId}" class="transition-all duration-200 overflow-hidden">
+                                        <div class="p-4">
+                                            <pre class="whitespace-pre-wrap font-mono text-sm">${formatValue(value)}</pre>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    `;
-                })
-                .join('');
+                            `;
+                        })
+                        .join('')}
+                </div>`;
             document.getElementById('validation-results').innerHTML = validationHtml;
         }
 
@@ -531,7 +534,23 @@
                         <!-- Detailed Correlations Section -->
                         <div class="bg-white p-4 rounded-lg shadow">
                             <h3 class="text-lg font-semibold mb-2">Detailed Correlations:</h3>
-                            <pre class="bg-gray-50 p-3 rounded text-sm overflow-auto">${formatValue(results.correlations)}</pre>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                ${Object.entries(results.correlations).map(([feature, correlations]) => `
+                                    <div class="bg-gray-50 p-3 rounded">
+                                        <h4 class="font-semibold mb-2">${feature}:</h4>
+                                        <div class="space-y-1 text-sm">
+                                            ${Object.entries(correlations)
+                                                .map(([col, val]) => `
+                                                    <div class="flex justify-between">
+                                                        <span>${col}:</span>
+                                                        <span class="font-mono ${Math.abs(val) > 0.5 ? 'text-indigo-600 font-semibold' : ''}">${val.toFixed(3)}</span>
+                                                    </div>
+                                                `)
+                                                .join('')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>
