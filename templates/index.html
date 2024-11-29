@@ -488,6 +488,24 @@
 
         // Display correlation results
         if (results.correlations) {
+            console.log('Results:', results);  
+            // Prepare top correlations HTML
+            let topCorrelationsHtml = '';
+            if (results.top_correlations && results.top_correlations.length > 0) {
+                console.log('Top correlations:', results.top_correlations);  
+                topCorrelationsHtml = results.top_correlations
+                    .map(corr => `
+                        <li class="text-sm">
+                            <strong>${corr.column1}</strong> and <strong>${corr.column2}</strong>: 
+                            ${(corr.correlation >= 0 ? 'Positive' : 'Negative')} correlation of 
+                            <span class="font-mono">${corr.correlation.toFixed(3)}</span>
+                        </li>
+                    `)
+                    .join('');
+            } else {
+                console.log('No top correlations found');  
+            }
+
             const correlationHtml = `
                 <div class="mb-4">
                     <button class="flex justify-between w-full text-lg font-semibold mb-2 bg-gray-100 p-3 rounded hover:bg-gray-200 focus:outline-none" 
@@ -495,8 +513,26 @@
                         <span>CORRELATIONS</span>
                         <span class="transform transition-transform duration-200" id="correlation-section-arrow">▼</span>
                     </button>
-                    <div id="correlation-section" class="transition-all duration-200 overflow-hidden">
-                        <pre class="bg-gray-100 p-3 rounded">${formatValue(results.correlations)}</pre>
+                    <div id="correlation-section" class="transition-all duration-200 overflow-hidden space-y-4">
+                        <!-- Top Correlations Text Section -->
+                        <div id="top-correlations" class="bg-white p-4 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold mb-2">Top 5 Correlations:</h3>
+                            <ul class="list-disc pl-5 space-y-1">
+                                ${topCorrelationsHtml}
+                            </ul>
+                        </div>
+
+                        <!-- Correlation Matrix Image Section -->
+                        <div id="correlation-matrix-container" class="bg-white p-4 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold mb-2">Correlation Matrix:</h3>
+                            <img id="correlation-matrix-image" class="hidden max-w-full h-auto" alt="Correlation Matrix">
+                        </div>
+
+                        <!-- Detailed Correlations Section -->
+                        <div class="bg-white p-4 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold mb-2">Detailed Correlations:</h3>
+                            <pre class="bg-gray-50 p-3 rounded text-sm overflow-auto">${formatValue(results.correlations)}</pre>
+                        </div>
                     </div>
                 </div>
             `;
@@ -504,7 +540,7 @@
 
             if (results.correlation_matrix_path) {
                 const matrixImg = document.getElementById('correlation-matrix-image');
-                matrixImg.src = '/' + results.correlation_matrix_path;
+                matrixImg.src = results.correlation_matrix_path;
                 matrixImg.classList.remove('hidden');
             }
         }

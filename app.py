@@ -179,14 +179,22 @@ def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
         
         # Analyze correlations
         correlation_results = correlation_analyzer.analyze(df)
+        logger.info(f"Correlation results: {correlation_results}")  # Debug log
+        
         updates = {
             'results': {
+                'validation': validation_results,
                 'correlations': correlation_results.get('correlations', {}),
-                'high_correlations': correlation_results.get('high_correlations', [])
+                'high_correlations': correlation_results.get('high_correlations', []),
+                'top_correlations': correlation_results.get('top_correlations', [])
             },
             'progress': 60,
             'task_id': task_id
         }
+        logger.info(f"Updates to send: {updates}")  # Debug log
+        
+        update_task_status(task_id, updates)
+        emit_progress(task_id)
         
         # Save correlation matrix plot
         if correlation_results.get('correlation_matrix_path'):

@@ -27,23 +27,35 @@ class CorrelationAnalyzer:
             return {
                 'correlations': {},
                 'high_correlations': [],
+                'top_correlations': [],
                 'correlation_matrix_path': None
             }
 
         # Calculate correlations
         correlation_matrix = df[numeric_cols].corr()
         
-        # Find high correlations
-        high_correlations = []
+        # Find all correlations (excluding self-correlations)
+        all_correlations = []
         for i in range(len(correlation_matrix.columns)):
-            for j in range(i+1, len(correlation_matrix.columns)):
-                corr = correlation_matrix.iloc[i, j]
-                if abs(corr) >= self.correlation_threshold:
-                    high_correlations.append({
-                        'column1': correlation_matrix.columns[i],
-                        'column2': correlation_matrix.columns[j],
-                        'correlation': corr
-                    })
+            for j in range(i+1, len(correlation_matrix.columns)):  # Only upper triangle to avoid duplicates
+                col1 = correlation_matrix.columns[i]
+                col2 = correlation_matrix.columns[j]
+                corr = correlation_matrix.loc[col1, col2]
+                all_correlations.append({
+                    'column1': col1,
+                    'column2': col2,
+                    'correlation': corr
+                })
+        
+        # Sort by absolute correlation value and get top 5
+        all_correlations.sort(key=lambda x: abs(x['correlation']), reverse=True)
+        top_correlations = all_correlations[:5]
+        
+        # Debug logging
+        self.logger.info(f"Top 5 correlations: {top_correlations}")
+        
+        # Filter high correlations based on threshold
+        high_correlations = [corr for corr in all_correlations if abs(corr['correlation']) >= self.correlation_threshold]
 
         # Generate correlation heatmap
         plt.figure(figsize=(10, 8))
@@ -52,13 +64,14 @@ class CorrelationAnalyzer:
         
         # Save plot
         os.makedirs('static/plots', exist_ok=True)
-        plot_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'plots', 'correlation_matrix.png')
+        plot_path = 'static/plots/correlation_matrix.png'
         plt.savefig(plot_path)
         plt.close()
 
         return {
             'correlations': correlation_matrix.to_dict(),
             'high_correlations': high_correlations,
+            'top_correlations': top_correlations,
             'correlation_matrix_path': plot_path
         }
 
