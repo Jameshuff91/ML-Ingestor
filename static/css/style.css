@@ -83,3 +83,91 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Info button and tooltip styles */
+.info-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    transition: all 0.2s ease;
+}
+
+.info-button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.info-button svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.info-button .tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 50;
+    left: calc(100% + 0.5rem);
+    top: 50%;
+    transform: translateY(-50%);
+    width: max-content;
+    max-width: 20rem;
+    background-color: #1a1a1a;
+    color: white;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.info-button:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Recommendation section styles */
+.recommendation {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #ebf5ff;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #1e40af;
+}
+
+.recommendation.hidden {
+    display: none;
+}
+
+/* Loading animation for recommendations */
+.recommendation.loading {
+    position: relative;
+    min-height: 3rem;
+}
+
+.recommendation.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid #1e40af;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin-recommendation 0.75s linear infinite;
+}
+
+@keyframes spin-recommendation {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}

@@ -20,6 +20,64 @@
         overflow: hidden;
         max-height: 0;
     }
+    
+    /* Styles for Recommendations */
+    .recommendation {
+        background-color: #f9f9f9;
+        padding: 1rem;
+        border-left: 4px solid #4f46e5; /* Indigo-600 */
+        border-radius: 0.5rem;
+    }
+
+    .recommendation.hidden {
+        display: none;
+    }
+
+    /* Styles for Info Buttons and Tooltips */
+    .info-button {
+        position: relative;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        color: #6b7280; /* Gray-500 */
+    }
+
+    .info-button svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .tooltip {
+        visibility: hidden;
+        width: 250px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        position: absolute;
+        z-index: 10;
+        bottom: 125%; /* Position above the button */
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .tooltip::after {
+        content: "";
+        position: absolute;
+        top: 100%; /* At the bottom of the tooltip */
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+
+    .info-button:hover .tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
 </style>
 {% endblock %}
 
@@ -117,8 +175,24 @@
                 <div id="validation-tab" class="tab-content">
                     <!-- Basic Validation Results -->
                     <div class="space-y-4">
-                        <h3 class="text-lg font-medium text-gray-900">Basic Validation Results</h3>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-medium text-gray-900">Basic Validation Results</h3>
+                            <button class="info-button" aria-label="Basic validation info">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="tooltip">
+                                    Basic validation checks fundamental data quality aspects:
+                                    <ul class="list-disc pl-5 mt-2">
+                                        <li>Missing values: Identifies empty or null values</li>
+                                        <li>Negative values: Flags negative numbers in positive-only fields</li>
+                                        <li>Duplicates: Detects identical rows in the dataset</li>
+                                    </ul>
+                                </div>
+                            </button>
+                        </div>
                         <div id="basic-validation-results"></div>
+                        <div id="basic-validation-recommendation" class="recommendation hidden"></div>
                     </div>
 
                     <!-- Advanced Validation Results -->
@@ -127,7 +201,32 @@
                         
                         <!-- Data Quality Score -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <h4 class="text-md font-medium text-gray-700 mb-2">Data Quality Score</h4>
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-md font-medium text-gray-700">Data Quality Score</h4>
+                                <button class="info-button" aria-label="Data quality score info">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div class="tooltip">
+                                        Data quality score is calculated based on multiple factors:
+                                        <ul class="list-disc pl-5 mt-2">
+                                            <li>Missing values (30% weight)</li>
+                                            <li>Duplicates (10% weight)</li>
+                                            <li>Outliers (20% weight)</li>
+                                            <li>Data distribution (20% weight)</li>
+                                            <li>Data consistency (20% weight)</li>
+                                        </ul>
+                                        <strong>Grading scale:</strong>
+                                        <ul class="list-disc pl-5 mt-2">
+                                            <li>A (90-100): Excellent</li>
+                                            <li>B (80-89): Good</li>
+                                            <li>C (70-79): Fair</li>
+                                            <li>D (60-69): Needs attention</li>
+                                            <li>F (&lt;60): Requires immediate action</li>
+                                        </ul>
+                                    </div>
+                                </button>
+                            </div>
                             <div id="quality-score-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="bg-white p-4 rounded shadow">
                                     <div class="text-center">
@@ -140,24 +239,83 @@
                                     <div id="column-quality-scores"></div>
                                 </div>
                             </div>
+                            <div id="quality-recommendation" class="recommendation hidden"></div>
                         </div>
 
                         <!-- Outlier Detection -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <h4 class="text-md font-medium text-gray-700 mb-2">Outlier Detection</h4>
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-md font-medium text-gray-700">Outlier Detection</h4>
+                                <button class="info-button" aria-label="Outlier detection info">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div class="tooltip">
+                                        We use two methods to detect outliers:
+                                        • Z-score: Values > 3 standard deviations from mean
+                                        • IQR: Values outside 1.5 × interquartile range
+
+                                        Both methods help identify unusual values that might:
+                                        • Be data entry errors
+                                        • Indicate rare but important events
+                                        • Need special handling in your models
+                                    </div>
+                                </button>
+                            </div>
                             <div id="outlier-results" class="bg-white p-4 rounded shadow"></div>
+                            <div id="outlier-recommendation" class="recommendation hidden"></div>
                         </div>
 
                         <!-- Distribution Analysis -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <h4 class="text-md font-medium text-gray-700 mb-2">Distribution Analysis</h4>
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-md font-medium text-gray-700">Distribution Analysis</h4>
+                                <button class="info-button" aria-label="Distribution analysis info">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div class="tooltip">
+                                        Distribution metrics help understand data shape:
+                                        • Skewness: Measures asymmetry
+                                          - >1 or <-1: Highly skewed
+                                          - Between -1 and 1: Approximately symmetric
+                                        • Kurtosis: Measures tail weight
+                                          - >3: Heavy-tailed (more outliers)
+                                          - =3: Normal distribution
+                                          - <3: Light-tailed
+                                        • Normality tests: p-value > 0.05 suggests normal distribution
+                                    </div>
+                                </button>
+                            </div>
                             <div id="distribution-results" class="bg-white p-4 rounded shadow"></div>
+                            <div id="distribution-recommendation" class="recommendation hidden"></div>
                         </div>
 
                         <!-- Multicollinearity -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <h4 class="text-md font-medium text-gray-700 mb-2">Multicollinearity Detection</h4>
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-md font-medium text-gray-700">Multicollinearity Detection</h4>
+                                <button class="info-button" aria-label="Multicollinearity detection info">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div class="tooltip">
+                                        Multicollinearity issues arise when features are highly correlated:
+                                        • Correlation > 0.8: Strong relationship
+                                        • Can cause problems in ML models:
+                                          - Unstable coefficient estimates
+                                          - Reduced model interpretability
+                                          - Overfitting risks
+                                        
+                                        Solutions may include:
+                                        • Feature selection
+                                        • Principal Component Analysis (PCA)
+                                        • Combining related features
+                                    </div>
+                                </button>
+                            </div>
                             <div id="multicollinearity-results" class="bg-white p-4 rounded shadow"></div>
+                            <div id="multicollinearity-recommendation" class="recommendation hidden"></div>
                         </div>
                     </div>
                 </div>
@@ -547,6 +705,21 @@
                 </div>`;
             document.getElementById('basic-validation-results').innerHTML = basicHtml;
 
+            // Display Recommendations if any validation issues are found
+            const recommendations = generateRecommendations(basicValidation);
+            if (recommendations.length > 0) {
+                const recommendationDiv = document.getElementById('basic-validation-recommendation');
+                recommendationDiv.innerHTML = `
+                    <h4 class="text-md font-semibold text-gray-700 mb-2">Recommendations:</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                        ${recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                `;
+                recommendationDiv.classList.remove('hidden');
+            } else {
+                document.getElementById('basic-validation-recommendation').classList.add('hidden');
+            }
+
             // Advanced Validation Results
             const advancedValidation = validationResults.advanced_validation;
             
@@ -901,10 +1074,30 @@
         `;
     }
 
-    // Placeholder for showToast function
+    // Toast Notification Function
     function showToast(message, type) {
         // Implement your toast notification logic here
-        console.log(`[${type.toUpperCase()}]: ${message}`);
+        // Example using simple alert (replace with a better UI in production)
+        alert(`[${type.toUpperCase()}]: ${message}`);
+    }
+
+    // Helper function to generate recommendations based on basic validation
+    function generateRecommendations(basicValidation) {
+        const recommendations = [];
+
+        if (basicValidation.missing_values && basicValidation.missing_values > 0) {
+            recommendations.push(`There are ${basicValidation.missing_values} missing values. Consider imputing missing data or removing incomplete records.`);
+        }
+
+        if (basicValidation.negative_values && basicValidation.negative_values.length > 0) {
+            recommendations.push(`Found negative values in fields: ${basicValidation.negative_values.join(', ')}. Verify if negative values are expected.`);
+        }
+
+        if (basicValidation.duplicates && basicValidation.duplicates > 0) {
+            recommendations.push(`Detected ${basicValidation.duplicates} duplicate rows. Consider removing duplicates to ensure data integrity.`);
+        }
+
+        return recommendations;
     }
 </script>
 {% endblock %}
