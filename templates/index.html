@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}ML Ingestor - Data Processing{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- File Upload Section -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Data Upload</h2>
+            <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-indigo-500 transition-colors duration-200">
+                <div class="space-y-4">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400"></i>
+                    <p class="text-gray-600">
+                        Drag and drop your data file here<br>
+                        <span class="text-sm">or</span>
+                    </p>
+                    <input type="file" id="file-input" class="hidden" accept=".csv,.xlsx,.xls">
+                    <button onclick="document.getElementById('file-input').click()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Choose File
+                    </button>
+                    <p class="text-xs text-gray-500">
+                        Supported formats: CSV, Excel (.xlsx, .xls)
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Preview Section -->
+    <div id="preview-section" class="bg-white shadow rounded-lg hidden">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-900">Data Preview</h2>
+                <button id="process-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                    Process Data
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="preview-table" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50"></thead>
+                    <tbody class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Progress Section -->
+    <div id="progress-section" class="bg-white shadow rounded-lg hidden">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Processing Status</h2>
+            <div class="space-y-4">
+                <div class="relative pt-1">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span id="progress-status" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-200">
+                                Processing
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-indigo-600">
+                                0%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-indigo-200">
+                        <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="space-y-6 hidden">
+        <!-- Validation Results -->
+        <div id="validation-results" class="bg-white shadow rounded-lg p-6"></div>
+        
+        <!-- Correlation Results -->
+        <div id="correlation-results" class="bg-white shadow rounded-lg p-6">
+            <div id="correlation-data"></div>
+            <div id="correlation-matrix" class="mt-4">
+                <img id="correlation-matrix-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Correlation Matrix">
+            </div>
+        </div>
+        
+        <!-- ERD Results -->
+        <div id="erd-results" class="bg-white shadow rounded-lg p-6">
+            <img id="erd-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Entity-Relationship Diagram">
+            <div id="erd-error" class="hidden text-red-600"></div>
+        </div>
+    </div>
+
+    <!-- Export Section -->
+    <div id="export-section" class="bg-white shadow rounded-lg hidden">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Format</label>
+                        <select id="export-format" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="csv">CSV</option>
+                            <option value="json">JSON</option>
+                            <option value="parquet">Parquet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Compression</label>
+                        <select id="export-compression" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">None</option>
+                            <option value="gzip">GZIP</option>
+                            <option value="bz2">BZ2</option>
+                            <option value="zip">ZIP</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="export-btn" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>
+                            Export Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize variables
+    let socket;
+    let currentFilename;
+    let currentTaskId;
+    let tasks = {};
+
+    // Initialize Socket.IO connection
+    function initSocket() {
+        console.log('Initializing Socket.IO connection...');
+        socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5,
+            transports: ['websocket', 'polling']  // Try WebSocket first, fallback to polling
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server with ID:', socket.id);
+            console.log('Transport type:', socket.io.engine.transport.name);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            console.error('Connection error details:', {
+                readyState: socket.io.engine.readyState,
+                transport: socket.io.engine.transport
+            });
+            showToast('Connection error: ' + error, 'error');
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log('Reconnected after ' + attemptNumber + ' attempts');
+            showToast('Reconnected to server', 'success');
+        });
+
+        socket.on('reconnect_failed', () => {
+            console.error('Failed to reconnect');
+            showToast('Failed to reconnect to server', 'error');
+        });
+
+        // WebSocket Event Handlers
+        socket.on('progress', data => {
+            console.log('Received progress event:', data);
+            
+            // Check if this is the initial progress event for a new task
+            if (!currentTaskId && data.task_id) {
+                console.log('Setting current task ID:', data.task_id);
+                currentTaskId = data.task_id;
+            }
+            
+            // Check if this progress event is for our current task
+            if (data.task_id === currentTaskId) {
+                console.log('Updating progress for task:', currentTaskId);
+                
+                // Always update progress and status
+                updateProgress(data.progress || 0, data.status || 'Running');
+                
+                // Update the progress status immediately
+                const progressStatus = document.getElementById('progress-status');
+                if (progressStatus) {
+                    progressStatus.textContent = data.status || 'Running';
+                }
+
+                if (data.error) {
+                    console.error('Task error:', data.error);
+                    showToast(data.error, 'error');
+                    return;
+                }
+                
+                // Check if we have results
+                if (data.results && Object.keys(data.results).length > 0) {
+                    console.log('Task has results:', data.results);
+                    showResults(data.results);
+                    
+                    // If task is complete, update UI accordingly
+                    if (data.status === 'Complete') {
+                        document.getElementById('export-section').classList.remove('hidden');
+                        showToast('Processing complete', 'success');
+                        
+                        // Update progress bar and status styles
+                        document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
+                        document.getElementById('progress-status').classList.add('text-green-600', 'bg-green-200');
+                        document.getElementById('progress-bar').classList.remove('bg-indigo-600');
+                        document.getElementById('progress-bar').classList.add('bg-green-600');
+                    }
+                }
+            } else {
+                console.log('Ignoring progress event for different task. Current:', currentTaskId, 'Received:', data.task_id);
+            }
+        });
+        
+        socket.on('complete', data => {
+            console.log('Received complete event:', data);
+            if (data.task_id === currentTaskId) {
+                updateProgress(100, 'Complete');
+                tasks[data.task_id] = data;
+                showResults(data.results);
+                document.getElementById('export-section').classList.remove('hidden');
+                showToast('Processing complete', 'success');
+                document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
+                document.getElementById('progress-status').classList.add('text-green-600', 'bg-green-200');
+            }
+        });
+        
+        socket.on('error', data => {
+            console.log('Received error event:', data);
+            if (data.task_id === currentTaskId) {
+                updateProgress(100, 'Failed');  // Set to 100% when failed
+                showToast(data.error, 'error');
+                document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
+                document.getElementById('progress-status').classList.add('text-red-600', 'bg-red-200');
+                document.getElementById('progress-bar').classList.remove('bg-indigo-600');
+                document.getElementById('progress-bar').classList.add('bg-red-600');
+            }
+        });
+    }
+
+    // Initialize socket connection
+    initSocket();
+
+    // Initialize variables
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        uploadArea.classList.add('border-indigo-500');
+    }
+
+    function unhighlight(e) {
+        uploadArea.classList.remove('border-indigo-500');
+    }
+
+    uploadArea.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', handleFileSelect, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const file = dt.files[0];
+        handleFile(file);
+    }
+
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        handleFile(file);
+    }
+
+    function handleFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        currentFilename = file.name;
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showPreview(data);
+                showToast('File uploaded successfully', 'success');
+            } else {
+                showToast(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Upload failed: ' + error, 'error');
+        });
+    }
+
+    function showPreview(data) {
+        // Show preview section
+        document.getElementById('preview-section').classList.remove('hidden');
+
+        // Create table headers
+        const thead = document.querySelector('#preview-table thead');
+        thead.innerHTML = `
+            <tr>
+                ${data.columns.map(col => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col}</th>`).join('')}
+            </tr>
+        `;
+
+        // Create table rows
+        const tbody = document.querySelector('#preview-table tbody');
+        tbody.innerHTML = data.preview.map(row => `
+            <tr>
+                ${data.columns.map(col => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row[col]}</td>`).join('')}
+            </tr>
+        `).join('');
+    }
+
+    // Process Data
+    document.getElementById('process-btn').addEventListener('click', () => {
+        const config = {
+            generate_erd: true,
+            filename: currentFilename
+        };
+
+        // Reset current task ID
+        currentTaskId = null;
+
+        // Show progress section and hide results
+        document.getElementById('progress-section').classList.remove('hidden');
+        document.getElementById('results-section').classList.add('hidden');
+        document.getElementById('export-section').classList.add('hidden');
+
+        // Reset progress indicators
+        updateProgress(0, 'Starting');
+        
+        // Reset progress bar styles
+        document.getElementById('progress-status').classList.remove('text-green-600', 'bg-green-200', 'text-red-600', 'bg-red-200');
+        document.getElementById('progress-status').classList.add('text-indigo-600', 'bg-indigo-200');
+        document.getElementById('progress-bar').classList.remove('bg-green-600', 'bg-red-600');
+        document.getElementById('progress-bar').classList.add('bg-indigo-600');
+        
+        // Send process request
+        fetch('/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentTaskId = data.task_id;
+                console.log('Started new task with ID:', currentTaskId);
+            } else {
+                showToast(data.error || 'Failed to start processing', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Failed to start processing: ' + error, 'error');
+        });
+    });
+
+    function updateProgress(progress, status) {
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+        document.getElementById('progress-percentage').textContent = `${progress}%`;
+        document.getElementById('progress-status').textContent = status;
+
+        // Reset colors to default if not error or complete
+        if (status !== 'Failed' && status !== 'Complete') {
+            document.getElementById('progress-status').classList.remove('text-red-600', 'bg-red-200', 'text-green-600', 'bg-green-200');
+            document.getElementById('progress-status').classList.add('text-indigo-600', 'bg-indigo-200');
+            document.getElementById('progress-bar').classList.remove('bg-red-600', 'bg-green-600');
+            document.getElementById('progress-bar').classList.add('bg-indigo-600');
+        }
+    }
+
+    function showResults(results) {
+        console.log('Showing results:', results);
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('export-section').classList.remove('hidden');
+
+        // Helper function to format values
+        function formatValue(value, indent = 0) {
+            if (Array.isArray(value)) {
+                return value.map(v => formatValue(v, indent + 1)).join('\n' + ' '.repeat(indent * 2));
+            } else if (typeof value === 'object' && value !== null) {
+                return Object.entries(value)
+                    .map(([k, v]) => `${k}: ${formatValue(v, indent + 1)}`)
+                    .join('\n' + ' '.repeat(indent * 2));
+            } else if (typeof value === 'number') {
+                return value.toFixed(3);
+            }
+            return value;
+        }
+
+        // Display validation results
+        const validationResults = results.validation;
+        if (validationResults) {
+            const validationHtml = Object.entries(validationResults)
+                .map(([key, value], index) => {
+                    const sectionId = `validation-section-${index}`;
+                    return `
+                        <div class="mb-4">
+                            <button class="flex justify-between w-full text-lg font-semibold mb-2 bg-gray-100 p-3 rounded hover:bg-gray-200 focus:outline-none" 
+                                    onclick="toggleSection('${sectionId}')">
+                                <span>${key.replace(/_/g, ' ').toUpperCase()}</span>
+                                <span class="transform transition-transform duration-200" id="${sectionId}-arrow">▼</span>
+                            </button>
+                            <div id="${sectionId}" class="transition-all duration-200 overflow-hidden">
+                                <pre class="bg-gray-100 p-3 rounded">${formatValue(value)}</pre>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+            document.getElementById('validation-results').innerHTML = validationHtml;
+        }
+
+        // Display correlation results
+        if (results.correlations) {
+            const correlationHtml = `
+                <div class="mb-4">
+                    <button class="flex justify-between w-full text-lg font-semibold mb-2 bg-gray-100 p-3 rounded hover:bg-gray-200 focus:outline-none" 
+                            onclick="toggleSection('correlation-section')">
+                        <span>CORRELATIONS</span>
+                        <span class="transform transition-transform duration-200" id="correlation-section-arrow">▼</span>
+                    </button>
+                    <div id="correlation-section" class="transition-all duration-200 overflow-hidden">
+                        <pre class="bg-gray-100 p-3 rounded">${formatValue(results.correlations)}</pre>
+                    </div>
+                </div>
+            `;
+            document.getElementById('correlation-data').innerHTML = correlationHtml;
+
+            if (results.correlation_matrix_path) {
+                const matrixImg = document.getElementById('correlation-matrix-image');
+                matrixImg.src = '/' + results.correlation_matrix_path;
+                matrixImg.classList.remove('hidden');
+            }
+        }
+
+        // Display ERD if available
+        if (results.erd_path) {
+            const erdImg = document.getElementById('erd-image');
+            erdImg.src = results.erd_path;
+            erdImg.classList.remove('hidden');
+        } else if (results.erd_error) {
+            document.getElementById('erd-error').textContent = results.erd_error;
+            document.getElementById('erd-error').classList.remove('hidden');
+        }
+
+        // Enable export section
+        document.getElementById('export-btn').disabled = false;
+    }
+
+    // Add toggle section functionality
+    function toggleSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        const arrow = document.getElementById(`${sectionId}-arrow`);
+        
+        if (section.style.maxHeight) {
+            section.style.maxHeight = null;
+            arrow.style.transform = 'rotate(0deg)';
+        } else {
+            section.style.maxHeight = section.scrollHeight + "px";
+            arrow.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    // Export Data
+    document.getElementById('export-btn').addEventListener('click', () => {
+        const config = {
+            task_id: currentTaskId,
+            format: document.getElementById('export-format').value,
+            compression: document.getElementById('export-compression').value || null
+        };
+
+        fetch('/export', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.download_url) {
+                // Create a temporary link and click it to trigger the download
+                const link = document.createElement('a');
+                link.href = data.download_url;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('Export successful', 'success');
+            } else {
+                showToast(data.error || 'Export failed', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Export failed: ' + error, 'error');
+        });
+    });
+</script>
+{% endblock %}
