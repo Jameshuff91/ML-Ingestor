@@ -4,6 +4,10 @@ import logging
 import anthropic
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
+# ============================================
+# CLAUDE API FUNCTIONS
+# ============================================
+
 @retry(
     wait=wait_exponential(multiplier=1, min=4, max=60),
     stop=stop_after_attempt(5),
@@ -26,10 +30,11 @@ def call_claude_api(prompt: str, system_content: str = "") -> str:
         messages = [{"role": "user", "content": prompt}]
 
         response = client.messages.create(
-            model="claude-3-sonnet-20240229",
+            model="claude-3-5-sonnet-20240620",
             max_tokens=8192,
             messages=messages,
             system=system_content if system_content else "",
+            extra_headers={"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}
         )
         logging.info("Received response from Anthropic Claude API.")
         

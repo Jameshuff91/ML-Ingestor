@@ -144,9 +144,14 @@ def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
     try:
         # Initialize task
         update_task_status(task_id, {
-            'status': 'Running',
+            'status': 'Processing',
             'progress': 0,
-            'results': {},
+            'results': {
+                'validation': {},
+                'correlations': {},
+                'high_correlations': [],
+                'top_correlations': []
+            },
             'task_id': task_id
         })
         emit_progress(task_id)
@@ -209,17 +214,16 @@ def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
             try:
                 erd_path = get_plot_path(f'erd_{task_id}')
                 orientation = config.get('erd_orientation', 'LR')  # Default to left-to-right
-                erd_path = erd_generator.generate_erd(df, filename, orientation=orientation)
-                update_task_status(task_id, {
-                    'results': {'erd_path': erd_path},
-                    'task_id': task_id
-                })
+                erd_path = erd_generator.generate(df)
+                updates['results']['erd_path'] = erd_path
+                update_task_status(task_id, updates)
+                emit_progress(task_id)
             except Exception as e:
                 logger.error(f"ERD generation failed: {str(e)}")
                 update_task_status(task_id, {
                     'status': 'Failed',
                     'error': str(e),
-                    'results': {'erd_error': str(e)},
+                    'progress': 100,
                     'task_id': task_id
                 })
                 emit_progress(task_id)
@@ -244,6 +248,7 @@ def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
         update_task_status(task_id, {
             'status': 'Failed',
             'error': str(e),
+            'progress': 100,
             'task_id': task_id
         })
         emit_progress(task_id)
@@ -270,10 +275,9 @@ def process_data():
         
         # Initialize task
         update_task_status(task_id, {
-            'status': 'Running',
+            'status': 'Processing',
             'progress': 0,
-            'results': {},
-            'task_id': task_id
+            'results': {}  # Initialize results to empty dictionary
         })
         
         # Start processing in background
@@ -284,7 +288,7 @@ def process_data():
             'success': True,
             'task_id': task_id,
             'results': {
-                'status': 'Running',
+                'status': 'Processing',
                 'progress': 0
             }
         })
@@ -293,24 +297,13 @@ def process_data():
         logger.error(f"Task failed: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/progress/<task_id>', methods=['GET'])
+@app.route('/progress/<task_id>')
 def get_progress(task_id):
-    """Get task progress."""
-    if task_id not in tasks:
+    """Get progress for a specific task."""
+    task_status = get_task_status(task_id)
+    if task_status is None:
         return jsonify({'error': 'Task not found'}), 404
-        
-    task = get_task_status(task_id)
-    response = {
-        'status': task.get('status'),
-        'progress': task.get('progress', 0),
-        'error': task.get('error') if task.get('status') == 'Failed' else None
-    }
-    
-    # Include results if task is complete or failed
-    if task.get('results') is not None:
-        response['results'] = task['results']
-        
-    return jsonify(response)
+    return jsonify(task_status)
 
 @app.route('/results/<task_id>', methods=['GET'])
 def get_results(task_id):

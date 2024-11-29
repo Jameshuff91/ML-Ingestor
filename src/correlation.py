@@ -62,9 +62,9 @@ class CorrelationAnalyzer:
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0)
         plt.title('Correlation Matrix')
         
-        # Save plot
+        # Save plot with unique name
         os.makedirs('static/plots', exist_ok=True)
-        plot_path = 'static/plots/correlation_matrix.png'
+        plot_path = f'static/plots/correlation_matrix_{hash(frozenset(numeric_cols))}.png'
         plt.savefig(plot_path)
         plt.close()
 

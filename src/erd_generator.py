@@ -49,37 +49,13 @@ class ERDGenerator:
             os.makedirs(os.path.dirname(png_path), exist_ok=True)
             
             # Save DOT file
-            with open(dot_path, 'w') as f:
-                f.write(dot.source)
-                
-            # Generate PNG using dot command
-            try:
-                subprocess.run(
-                    [
-                        'C:\\Program Files\\Graphviz\\bin\\dot.exe',
-                        '-Tpng',
-                        dot_path,
-                        '-o',
-                        png_path
-                    ],
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Error running dot command: {e.stderr}")
-                raise
-                
-            # Clean up DOT file
-            try:
-                os.remove(dot_path)
-            except Exception as e:
-                logger.warning(f"Failed to remove DOT file: {str(e)}")
+            dot.save(dot_path)
             
-            # Return relative path from static directory
-            static_dir = os.path.join(os.path.dirname(__file__), '..', 'static')
-            rel_path = os.path.relpath(png_path, static_dir)
-            return f'/static/{rel_path}'  # Add /static/ prefix
+            # Generate PNG
+            dot.render(dot_path, format='png', cleanup=True)
+            
+            # Return path relative to static directory
+            return os.path.join('plots', os.path.basename(png_path))
             
         except Exception as e:
             logger.error(f"Error generating ERD: {str(e)}")

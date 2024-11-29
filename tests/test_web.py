@@ -19,9 +19,18 @@ class TestWebInterface(unittest.TestCase):
     """Test cases for web interface functionality."""
 
     def setUp(self):
-        """Set up test client and required directories."""
+        """Set up test client and create necessary directories."""
         app.config['TESTING'] = True
         self.app = app.test_client()
+        
+        # Create necessary directories
+        self.static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+        self.plots_dir = os.path.join(self.static_dir, 'plots')
+        os.makedirs(self.plots_dir, exist_ok=True)
+        
+        # Create uploads directory
+        self.uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+        os.makedirs(self.uploads_dir, exist_ok=True)
         
         # Initialize SocketIO test client
         self.socketio = socketio
@@ -49,9 +58,22 @@ class TestWebInterface(unittest.TestCase):
                     elif os.path.isdir(file_path):
                         import shutil
                         shutil.rmtree(file_path)
-                except (PermissionError, OSError) as e:
-                    logger.warning(f"Failed to remove {file_path}: {e}")
-            
+                except Exception as e:
+                    logger.warning(f"Failed to remove {file_path}: {str(e)}")
+
+        # Clean up plots directory
+        if os.path.exists(self.test_plots_dir):
+            for file in os.listdir(self.test_plots_dir):
+                file_path = os.path.join(self.test_plots_dir, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                    elif os.path.isdir(file_path):
+                        import shutil
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove {file_path}: {str(e)}")
+
         # Clean up exported files
         export_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'exports')
         if os.path.exists(export_dir):
@@ -249,11 +271,7 @@ class TestWebInterface(unittest.TestCase):
         data = {
             'file': (io.BytesIO(b'id,name,value\n1,Alice,10\n2,Bob,20'), 'test.csv')
         }
-        upload_response = self.app.post('/upload', 
-                                      content_type='multipart/form-data',
-                                      data=data)
-        self.assertEqual(upload_response.status_code, 200)
-        
+
         # Start processing
         test_config = {
             'filename': 'test.csv',
@@ -310,6 +328,8 @@ class TestWebInterface(unittest.TestCase):
             'value': [10, np.nan, 30],
             'text': ['a', 'b', None]
         })
+        
+        # Mock the load_file function
         mock_ingestion.load_file.return_value = df
         
         # Create a mock file
@@ -426,7 +446,7 @@ class TestWebInterface(unittest.TestCase):
         data = {
             'file': (io.BytesIO(b'id,name,value\n1,Alice,10\n2,Bob,20'), 'test.csv')
         }
-        upload_response = self.app.post('/upload', 
+        upload_response = self.app.post('/upload',
                                       content_type='multipart/form-data',
                                       data=data)
         self.assertEqual(upload_response.status_code, 200)
@@ -610,7 +630,7 @@ class TestWebInterface(unittest.TestCase):
         data = {
             'file': (io.BytesIO(b'numeric,text,date\n1.23456,test,2023-01-01\n2.34567,sample,2023-01-02'), 'test.csv')
         }
-        
+
         # Upload and process
         upload_response = self.app.post('/upload', 
                                       content_type='multipart/form-data',
