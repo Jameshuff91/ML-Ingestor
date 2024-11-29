@@ -2,6 +2,27 @@
 
 {% block title %}ML Ingestor - Data Processing{% endblock %}
 
+{% block head %}
+<style>
+    .tab-button.active {
+        color: rgb(79, 70, 229);
+        border-bottom-color: rgb(79, 70, 229);
+    }
+    
+    /* Add styles for collapsible sections */
+    .transition-all {
+        transition-property: all;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 200ms;
+    }
+    
+    .overflow-hidden {
+        overflow: hidden;
+        max-height: 0;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
     <!-- File Upload Section -->
@@ -72,22 +93,42 @@
     </div>
 
     <!-- Results Section -->
-    <div id="results-section" class="space-y-6 hidden">
-        <!-- Validation Results -->
-        <div id="validation-results" class="bg-white shadow rounded-lg p-6"></div>
-        
-        <!-- Correlation Results -->
-        <div id="correlation-results" class="bg-white shadow rounded-lg p-6">
-            <div id="correlation-data"></div>
-            <div id="correlation-matrix" class="mt-4">
-                <img id="correlation-matrix-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Correlation Matrix">
+    <div id="results-section" class="bg-white shadow rounded-lg hidden">
+        <div class="p-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button onclick="showTab('validation')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm active" data-tab="validation">
+                        Validation Results
+                    </button>
+                    <button onclick="showTab('correlation')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="correlation">
+                        Correlation Analysis
+                    </button>
+                    <button onclick="showTab('erd')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="erd">
+                        ERD
+                    </button>
+                </nav>
             </div>
-        </div>
-        
-        <!-- ERD Results -->
-        <div id="erd-results" class="bg-white shadow rounded-lg p-6">
-            <img id="erd-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Entity-Relationship Diagram">
-            <div id="erd-error" class="hidden text-red-600"></div>
+            
+            <div class="mt-4">
+                <!-- Tab content -->
+                <div id="validation-tab" class="tab-content">
+                    <div id="validation-results"></div>
+                </div>
+                
+                <div id="correlation-tab" class="tab-content hidden">
+                    <div id="correlation-data"></div>
+                    <div id="correlation-matrix" class="mt-4">
+                        <img id="correlation-matrix-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Correlation Matrix">
+                    </div>
+                </div>
+                
+                <div id="erd-tab" class="tab-content hidden">
+                    <div id="erd-results">
+                        <img id="erd-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Entity-Relationship Diagram">
+                        <div id="erd-error" class="hidden text-red-600"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -427,14 +468,16 @@
                 .map(([key, value], index) => {
                     const sectionId = `validation-section-${index}`;
                     return `
-                        <div class="mb-4">
-                            <button class="flex justify-between w-full text-lg font-semibold mb-2 bg-gray-100 p-3 rounded hover:bg-gray-200 focus:outline-none" 
+                        <div class="mb-4 bg-gray-50 rounded-lg">
+                            <button class="flex justify-between w-full text-lg font-semibold bg-gray-100 p-3 rounded-t hover:bg-gray-200 focus:outline-none" 
                                     onclick="toggleSection('${sectionId}')">
                                 <span>${key.replace(/_/g, ' ').toUpperCase()}</span>
                                 <span class="transform transition-transform duration-200" id="${sectionId}-arrow">▼</span>
                             </button>
                             <div id="${sectionId}" class="transition-all duration-200 overflow-hidden">
-                                <pre class="bg-gray-100 p-3 rounded">${formatValue(value)}</pre>
+                                <div class="p-4">
+                                    <pre class="whitespace-pre-wrap font-mono text-sm">${formatValue(value)}</pre>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -483,15 +526,26 @@
     // Add toggle section functionality
     function toggleSection(sectionId) {
         const section = document.getElementById(sectionId);
-        const arrow = document.getElementById(`${sectionId}-arrow`);
+        const arrow = document.getElementById(sectionId + '-arrow');
         
         if (section.style.maxHeight) {
             section.style.maxHeight = null;
             arrow.style.transform = 'rotate(0deg)';
         } else {
-            section.style.maxHeight = section.scrollHeight + "px";
+            section.style.maxHeight = section.scrollHeight + 'px';
             arrow.style.transform = 'rotate(180deg)';
         }
+    }
+
+    // Add tab functionality
+    function showTab(tabId) {
+        const tabs = document.querySelectorAll('.tab-button');
+        tabs.forEach(tab => tab.classList.remove('active'));
+        document.querySelector(`.tab-button[data-tab="${tabId}"]`).classList.add('active');
+
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => content.classList.add('hidden'));
+        document.getElementById(`${tabId}-tab`).classList.remove('hidden');
     }
 
     // Export Data
