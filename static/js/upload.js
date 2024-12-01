@@ -2,6 +2,7 @@
 import { showToast, updateProgress } from './utils.js';
 import { socket } from './socket.js';
 import { setCurrentTaskId, addFileToUploadedFiles, removeFileFromUploadedFiles, getCurrentTaskId } from './state.js';
+import { updateFilesList } from './file-management.js';
 
 // Store mapping of original to unique filenames
 let filenameMapping = {};
@@ -111,44 +112,31 @@ async function uploadFiles(files) {
             }
             
             // Show success message
-            showToast('Files uploaded successfully. Processing...', 'success');
+            showToast('Files uploaded successfully!', 'success');
+            updateProgress(100, 'Upload complete!');
             
             // Add files to uploaded files list
             if (data.filenames) {
                 data.filenames.forEach(filename => {
                     addFileToUploadedFiles(filename);
                 });
-                updateUploadedFilesList();
                 
-                // Dispatch fileUploaded event for each file
-                data.filenames.forEach(filename => {
-                    const event = new CustomEvent('fileUploaded', {
-                        detail: { filename }
-                    });
-                    document.dispatchEvent(event);
-                });
-
-                // Show preview section and hide upload area
+                // Update UI to show preview section
                 const previewSection = document.getElementById('preview-section');
                 const uploadArea = document.getElementById('upload-area');
                 if (previewSection && uploadArea) {
                     uploadArea.classList.add('hidden');
                     previewSection.classList.remove('hidden');
                 }
-
-                // Add a small delay before triggering processing to ensure state is updated
-                setTimeout(() => {
-                    // Verify we have a task ID before processing
-                    const taskId = getCurrentTaskId();
-                    if (taskId) {
-                        // Emit the process_data event directly via socket
-                        socket.emit('process_data', { task_id: taskId });
-                        console.log('Emitted process_data with task ID:', taskId);
-                    } else {
-                        console.error('No task ID available for processing');
-                        showToast('Error: Unable to start processing', 'error');
-                    }
-                }, 100);
+                
+                // Update the files list in the preview section
+                updateFilesList();
+                
+                // Show process button
+                const processButton = document.getElementById('process-button');
+                if (processButton) {
+                    processButton.classList.remove('hidden');
+                }
             }
         } else {
             throw new Error(data.message || 'Upload failed');
@@ -354,7 +342,7 @@ export function getUploadedFiles() {
 // Initialize upload area and file list
 export function initializeUpload() {
     const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('file-upload');
+    const fileInput = document.getElementById('file-input');
     const chooseFilesButton = document.getElementById('choose-files-button');
     
     if (!uploadArea || !fileInput) {
@@ -378,13 +366,16 @@ export function initializeUpload() {
     uploadArea.addEventListener('drop', handleDrop);
     
     // File input events
-    fileInput.addEventListener('change', handleFileSelect);
+    fileInput.addEventListener('change', handleFileSelect, { once: true });
     
     // Choose files button event
     if (chooseFilesButton) {
         chooseFilesButton.addEventListener('click', (e) => {
             e.preventDefault();
-            fileInput.click();
+            e.stopPropagation();
+            if (!fileInput.disabled) {
+                fileInput.click();
+            }
         });
     }
     

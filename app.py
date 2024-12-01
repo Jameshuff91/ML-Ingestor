@@ -139,10 +139,26 @@ def preview_file(filename):
             df = pd.read_excel(file_path, nrows=5)
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
+
+        # Convert DataFrame to JSON-serializable format
+        def convert_value(val):
+            if pd.isna(val):
+                return None
+            if isinstance(val, (np.int64, np.int32)):
+                return int(val)
+            if isinstance(val, (np.float64, np.float32)):
+                if np.isinf(val):
+                    return 'Infinity' if val > 0 else '-Infinity'
+                return float(val)
+            return str(val)
+
+        # Convert columns and rows to JSON-serializable format
+        columns = df.columns.tolist()
+        rows = [[convert_value(val) for val in row] for row in df.values.tolist()]
             
         return jsonify({
-            'columns': df.columns.tolist(),
-            'rows': df.values.tolist()
+            'columns': columns,
+            'rows': rows
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -195,7 +211,7 @@ def upload_file():
         
         with task_lock:
             tasks[task_id] = {
-                'status': 'Processing',
+                'status': 'Uploaded',  # Changed from 'Processing' to 'Uploaded'
                 'progress': 0,
                 'filename': os.path.basename(filename),
                 'filepath': filename,
@@ -203,14 +219,13 @@ def upload_file():
                 'config': config
             }
         
-        # Start processing in background
-        Thread(target=process_data_task, args=(task_id, config)).start()
+        # Removed automatic processing thread start
         
         response = {
             'success': True,
             'filename': os.path.basename(filename),
             'task_id': task_id,
-            'status': 'Processing'
+            'status': 'Uploaded'  # Changed from 'Processing' to 'Uploaded'
         }
         logger.info(f"Upload successful: {response}")
         return jsonify(response)
@@ -260,7 +275,7 @@ def upload_multiple_files():
             
             with task_lock:
                 tasks[task_id] = {
-                    'status': 'Processing',
+                    'status': 'Uploaded',  # Changed from 'Processing' to 'Uploaded'
                     'progress': 0,
                     'filename': os.path.basename(filename),
                     'filepath': filename,
@@ -268,8 +283,7 @@ def upload_multiple_files():
                     'config': config
                 }
             
-            # Start processing in background
-            Thread(target=process_data_task, args=(task_id, config)).start()
+            # Removed automatic processing thread start
             
             uploaded_files.append(os.path.basename(filename))
             task_ids.append(task_id)
@@ -281,7 +295,7 @@ def upload_multiple_files():
             'success': True,
             'filenames': uploaded_files,
             'task_ids': task_ids,
-            'status': 'Processing'
+            'status': 'Uploaded'  # Changed from 'Processing' to 'Uploaded'
         }
         logger.info(f"Multiple upload successful: {response}")
         return jsonify(response)
