@@ -17,16 +17,22 @@ export function updateFilesList() {
                 <span class="text-gray-900">${filename}</span>
             </div>
             <div class="flex space-x-2">
-                <button onclick="window.previewFile('${filename}')" 
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <button class="preview-btn px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
                     Preview
                 </button>
-                <button onclick="window.deleteFile('${filename}')" 
-                        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
+                <button class="delete-btn px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
                     Delete
                 </button>
             </div>
         `;
+        
+        // Add event listeners
+        const previewBtn = fileElement.querySelector('.preview-btn');
+        const deleteBtn = fileElement.querySelector('.delete-btn');
+        
+        previewBtn.addEventListener('click', () => previewFile(filename));
+        deleteBtn.addEventListener('click', () => deleteFile(filename));
+        
         filesList.appendChild(fileElement);
     });
 }
@@ -36,11 +42,12 @@ export async function previewFile(filename) {
         const response = await fetch(`/preview_file/${filename}`);
         const data = await response.json();
         
-        const modal = document.getElementById('preview-modal');
-        const filenameElement = document.getElementById('preview-filename');
+        const previewSection = document.getElementById('preview-section');
         const table = document.getElementById('preview-table');
         
-        filenameElement.textContent = filename;
+        if (!previewSection || !table) {
+            throw new Error('Preview elements not found');
+        }
         
         // Create table header
         let headerHTML = '<thead><tr>';
@@ -61,8 +68,9 @@ export async function previewFile(filename) {
         bodyHTML += '</tbody>';
         
         table.innerHTML = headerHTML + bodyHTML;
-        modal.classList.remove('hidden');
+        previewSection.classList.remove('hidden');
     } catch (error) {
+        console.error('Preview error:', error);
         showToast('Error previewing file', 'error');
     }
 }
@@ -149,6 +157,8 @@ export function removeUploadedFile(fileName) {
 }
 
 // Make functions available globally
+window.previewFile = previewFile;
+window.deleteFile = deleteFile;
 window.removeFile = removeUploadedFile;
 
 // Update the file list when files are uploaded

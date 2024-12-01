@@ -41,18 +41,22 @@ export function showResults(results) {
         advancedResults.innerHTML = generateAdvancedValidationHTML(otherAdvancedResults);
     }
     
-    // Update correlation results and multicollinearity if available
+    // Initialize correlation tab first if correlation data exists
     if (results.correlation_analysis || (results.advanced_validation && results.advanced_validation.multicollinearity)) {
         const correlationTab = document.getElementById('correlation-tab');
-        const correlationData = document.getElementById('correlation-data');
-        const correlationMatrix = document.getElementById('correlation-matrix');
-        const multicollinearityResults = document.getElementById('multicollinearity-results');
+        const correlationTabBtn = document.getElementById('correlation-tab-btn');
         
-        if (correlationTab) {
+        if (correlationTab && correlationTabBtn) {
             correlationTab.classList.remove('hidden');
+            // Make sure the correlation tab exists in the tab structure
+            correlationTab.innerHTML = '<div id="correlation-data"></div>';
             
             // Display multicollinearity results
-            if (multicollinearityResults && results.advanced_validation?.multicollinearity) {
+            if (results.advanced_validation?.multicollinearity) {
+                const multicollinearityResults = document.createElement('div');
+                multicollinearityResults.id = 'multicollinearity-results';
+                correlationTab.appendChild(multicollinearityResults);
+                
                 multicollinearityResults.innerHTML = generateMulticollinearityHTML(results.advanced_validation.multicollinearity);
                 
                 // Update threshold input if it exists
@@ -70,8 +74,16 @@ export function showResults(results) {
             }
             
             // Display correlation analysis results using the dedicated function
-            if (correlationData && results.correlation_analysis) {
-                renderCorrelationMatrix(results.correlation_analysis);
+            if (results.correlation_analysis) {
+                const correlationData = document.getElementById('correlation-data');
+                if (correlationData) {
+                    renderCorrelationMatrix(results.correlation_analysis);
+                }
+            }
+            
+            // Hide the correlation tab initially if we're not on it
+            if (!correlationTabBtn.classList.contains('active')) {
+                correlationTab.classList.add('hidden');
             }
         }
     }
@@ -297,47 +309,110 @@ function generateNegativeValuesHTML(negativeValues) {
 function generateQualityScoresHTML(qualityScores) {
     if (!qualityScores) return '';
     
-    const columns = Object.entries(qualityScores)
-        .map(([col, score]) => ({
-            name: col,
-            score: score
-        }));
-    
+    // Helper function to get color class based on score
+    const getScoreColorClass = (score) => {
+        if (score >= 90) return 'text-green-600';
+        if (score >= 80) return 'text-blue-600';
+        if (score >= 70) return 'text-yellow-600';
+        return 'text-red-600';
+    };
+
+    // Helper function to get grade color class
+    const getGradeColorClass = (grade) => {
+        const gradeColors = {
+            'A': 'text-green-600',
+            'B': 'text-blue-600',
+            'C': 'text-yellow-600',
+            'D': 'text-orange-600',
+            'F': 'text-red-600'
+        };
+        return gradeColors[grade] || 'text-gray-600';
+    };
+
+    // Parse column scores if they're in string format
+    let columnScores = {};
+    if (qualityScores.column_scores) {
+        try {
+            columnScores = typeof qualityScores.column_scores === 'string' 
+                ? JSON.parse(qualityScores.column_scores) 
+                : qualityScores.column_scores;
+        } catch (e) {
+            console.error('Error parsing column scores:', e);
+            // If parsing fails, try to use the raw scores
+            columnScores = qualityScores.column_scores;
+        }
+    }
+
     return `
-        <div class="bg-white p-4 rounded-lg shadow">
-            <div class="flex items-center space-x-2 mb-4">
-                <h4 class="font-medium text-gray-900">Data Quality Scores</h4>
-                <div class="relative group">
-                    <svg class="w-5 h-5 text-gray-400 hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div class="hidden group-hover:block absolute z-10 w-72 px-4 py-3 text-sm bg-gray-900 text-white rounded-lg shadow-lg ml-2">
-                        Quality scores provide an overall assessment of data quality based on completeness, consistency, and validity of values in each column.
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-2">
+                    <h4 class="font-medium text-gray-900">Data Quality Scores</h4>
+                    <div class="relative group">
+                        <svg class="w-5 h-5 text-gray-400 hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="hidden group-hover:block absolute z-10 w-72 px-4 py-3 text-sm bg-gray-900 text-white rounded-lg shadow-lg ml-2">
+                            Quality scores provide an overall assessment of data quality based on completeness, consistency, and validity of values in each column.
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-center">
+                        <div class="text-sm text-gray-500 mb-1">Overall Score</div>
+                        <div class="text-2xl font-bold ${getScoreColorClass(qualityScores.overall_score)}">
+                            ${Number(qualityScores.overall_score).toFixed(1)}
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm text-gray-500 mb-1">Grade</div>
+                        <div class="text-2xl font-bold ${getGradeColorClass(qualityScores.overall_grade)}">
+                            ${qualityScores.overall_grade}
+                        </div>
                     </div>
                 </div>
             </div>
-            ${columns.length > 0 ? `
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead>
-                            <tr>
-                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Column</th>
-                                <th class="px-4 py-2 text-right text-sm font-medium text-gray-500">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${columns.map(col => `
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Column</th>
+                            <th class="px-4 py-2 text-right text-sm font-medium text-gray-500">Score</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Grade</th>
+                            <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Quality Level</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        ${Object.entries(columnScores).map(([column, info]) => {
+                            const score = typeof info === 'object' ? info.score : info;
+                            const grade = typeof info === 'object' ? info.grade : 
+                                        score >= 90 ? 'A' :
+                                        score >= 80 ? 'B' :
+                                        score >= 70 ? 'C' :
+                                        score >= 60 ? 'D' : 'F';
+                            return `
                                 <tr>
-                                    <td class="px-4 py-2 text-sm text-gray-900">${col.name}</td>
-                                    <td class="px-4 py-2 text-sm text-gray-900 text-right">${col.score}</td>
+                                    <td class="px-4 py-2 text-sm text-gray-900">${column}</td>
+                                    <td class="px-4 py-2 text-sm font-medium ${getScoreColorClass(score)} text-right">
+                                        ${typeof score === 'number' ? score.toFixed(1) : score}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm font-medium ${getGradeColorClass(grade)}">
+                                        ${grade}
+                                    </td>
+                                    <td class="px-4 py-2 text-sm text-gray-500">
+                                        ${score >= 90 ? 'Excellent' :
+                                          score >= 80 ? 'Good' :
+                                          score >= 70 ? 'Fair' :
+                                          'Needs Improvement'}
+                                    </td>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            ` : '<p class="text-sm text-gray-500">No quality scores found</p>'}
-        </div>
-    `;
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
 }
 
 function generateOutliersHTML(outliers) {

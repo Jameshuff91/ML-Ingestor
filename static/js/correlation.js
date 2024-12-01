@@ -188,6 +188,12 @@ export function renderCorrelationMatrix(correlationData) {
         html += '</div>';
         correlationDiv.innerHTML = html;
 
+        // Initialize and render correlation chart
+        const correlationCanvas = document.getElementById('correlation-canvas');
+        if (correlationCanvas) {
+            initializeCorrelationChart(correlationCanvas, correlationData.correlation_matrix);
+        }
+
     } catch (error) {
         console.error('Error rendering correlation matrix:', error);
         showToast('Error rendering correlation matrix', 'error');
@@ -200,6 +206,110 @@ function processData(data) {
         labels.map(col => data[row][col])
     );
     return { labels, values };
+}
+
+function initializeCorrelationChart(container, data) {
+    if (correlationChart) {
+        correlationChart.destroy();
+    }
+
+    const ctx = container.getContext('2d');
+    const { labels, values } = processData(data);
+
+    correlationChart = new Chart(ctx, {
+        type: 'matrix',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values.flat().map((value, i) => ({
+                    x: i % labels.length,
+                    y: Math.floor(i / labels.length),
+                    v: value
+                })),
+                backgroundColor: generateColors,
+                borderWidth: 1,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => {
+                            const item = items[0];
+                            return `${labels[item.dataIndex % labels.length]} vs ${labels[Math.floor(item.dataIndex / labels.length)]}`;
+                        },
+                        label: (item) => {
+                            return `Correlation: ${item.raw.v.toFixed(3)}`;
+                        }
+                    }
+                },
+                datalabels: {
+                    display: true,
+                    color: (context) => {
+                        const value = context.dataset.data[context.dataIndex].v;
+                        return Math.abs(value) > 0.7 ? '#fff' : '#666';
+                    },
+                    font: {
+                        size: 8
+                    },
+                    formatter: (value) => value.v.toFixed(2)
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category',
+                    offset: true,
+                    display: true,
+                    ticks: {
+                        font: {
+                            size: 10
+                        },
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: false,
+                        color: '#666',
+                        padding: 10
+                    },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    type: 'category',
+                    offset: true,
+                    display: true,
+                    position: 'left',
+                    ticks: {
+                        font: {
+                            size: 10
+                        },
+                        color: '#666',
+                        padding: 10,
+                        mirror: true,
+                        labelOffset: -10,
+                        align: 'end'
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            layout: {
+                padding: {
+                    left: 100,
+                    right: 30,
+                    top: 30,
+                    bottom: 70
+                }
+            }
+        }
+    });
 }
 
 function generateColors(context) {
