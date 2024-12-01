@@ -316,23 +316,34 @@ def process_data():
         if not config.get('filename'):
             return jsonify({'success': False, 'error': 'No filename provided'}), 400
             
-        # Verify file exists
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(config['filename']))
+        # Verify file exists and construct full filepath
+        filename = secure_filename(config['filename'])
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         if not os.path.exists(filepath):
-            return jsonify({'success': False, 'error': f"File not found: {config['filename']}"}), 404
+            return jsonify({'success': False, 'error': f"File not found: {filename}"}), 404
             
         # Generate unique task ID
         task_id = str(uuid.uuid4())
         
-        # Initialize task
+        # Initialize task status with structured results object
         update_task_status(task_id, {
             'status': 'Processing',
             'progress': 0,
-            'results': {}  # Initialize results to empty dictionary
+            'results': {
+                'basic_validation': {},
+                'advanced_validation': {},
+                'correlation_analysis': None
+            }
         })
         
+        # Add filepath to config
+        task_config = {
+            **config,
+            'filepath': filepath  # Add the full filepath for the task
+        }
+        
         # Start processing in background
-        Thread(target=process_data_task, args=(task_id, config)).start()
+        Thread(target=process_data_task, args=(task_id, task_config)).start()
         
         # Return task ID for progress tracking
         return jsonify({
@@ -921,6 +932,45 @@ def handle_process_data(data):
             'task_id': task_id if 'task_id' in locals() else None,
             'error': str(e)
         })
+
+@app.route('/process_data', methods=['POST'])
+def process_data_endpoint():
+    """Process uploaded data file."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+            
+        # Get task ID
+        task_id = data.get('task_id')
+        if not task_id:
+            return jsonify({'success': False, 'error': 'No task ID provided'}), 400
+            
+        # Verify task exists and get task data
+        with task_lock:
+            if task_id not in tasks:
+                return jsonify({'success': False, 'error': 'Invalid task ID'}), 404
+            task = tasks[task_id]
+            
+        # Update task status to Processing
+        update_task_status(task_id, {
+            'status': 'Processing',
+            'progress': 0
+        })
+        
+        # Start processing in background
+        Thread(target=process_data_task, args=(task_id, task)).start()
+        
+        # Return success response
+        return jsonify({
+            'success': True,
+            'message': 'Processing started',
+            'task_id': task_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting data processing: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     socketio.run(

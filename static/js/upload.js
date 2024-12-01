@@ -183,9 +183,8 @@ export async function handleFile(file) {
         }
         
         if (result.success) {
-            // Add to uploaded files list
-            filenameMapping[file.name] = result.filename;
-            addFileToUploadedFiles(file.name);
+            // Add to uploaded files list with both original and server filenames
+            addFileToUploadedFiles(file.name, result.filename);
             
             // Set the task ID from the upload response
             if (result.task_id) {
@@ -196,14 +195,12 @@ export async function handleFile(file) {
                     socket.emit('subscribe', { task_id: result.task_id });
                 }
                 
-                // Show progress section
+                // Show progress section and update progress bar
                 const progressSection = document.getElementById('progress-section');
                 if (progressSection) {
                     progressSection.classList.remove('hidden');
+                    updateProgress(0, 'File uploaded successfully. Click Process to begin analysis.');
                 }
-                
-                // Reset progress bar
-                updateProgress(0, 'File uploaded successfully. Click Process to begin analysis.');
             }
             
             showToast('File uploaded successfully', 'success');
@@ -215,56 +212,58 @@ export async function handleFile(file) {
                 processBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 processBtn.classList.add('hover:bg-indigo-700');
                 processBtn.dataset.taskId = result.task_id;
+                processBtn.textContent = 'Process Data'; // Reset button text
             }
             
-            // Only emit start_validation event, remove start_processing
+            // Only emit start_validation event
             if (socket && socket.connected) {
-                socket.emit('start_validation', { filename: result.filename });
-            } else {
-                showToast('Not connected to server. Please refresh the page.', 'error');
+                socket.emit('start_validation', { 
+                    filename: result.filename,
+                    original_filename: file.name  // Added original filename
+                });
             }
             
-            // Show preview section
-            const previewSection = document.getElementById('preview-section');
-            if (previewSection) {
-                previewSection.classList.remove('hidden');
-            }
+            // Show preview section and update UI
+            updateFilesList();
             
-            // Create table headers
-            if (result.columns && result.columns.length > 0) {
-                const thead = document.querySelector('#preview-table thead');
-                if (thead) {
-                    thead.innerHTML = `
-                        <tr>
-                            ${result.columns.map(col => `
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    ${col}
-                                </th>
-                            `).join('')}
-                        </tr>
-                    `;
-                }
-                
-                // Create table rows
-                if (result.preview && result.preview.length > 0) {
-                    const tbody = document.querySelector('#preview-table tbody');
-                    if (tbody) {
-                        tbody.innerHTML = result.preview.map(row => `
-                            <tr class="bg-white">
-                                ${result.columns.map(col => `
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        ${row[col] !== null ? row[col] : ''}
-                                    </td>
-                                `).join('')}
-                            </tr>
-                        `).join('');
-                    }
-                }
+            // Update preview if available
+            if (result.preview && result.columns) {
+                updatePreview(result.columns, result.preview);
             }
         }
     } catch (error) {
         console.error('Upload error:', error);
         showToast(error.message || 'Error uploading file', 'error');
+    }
+}
+
+// New helper function to update preview
+function updatePreview(columns, previewData) {
+    const thead = document.querySelector('#preview-table thead');
+    const tbody = document.querySelector('#preview-table tbody');
+    
+    if (thead && columns.length > 0) {
+        thead.innerHTML = `
+            <tr>
+                ${columns.map(col => `
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ${col}
+                    </th>
+                `).join('')}
+            </tr>
+        `;
+    }
+    
+    if (tbody && previewData.length > 0) {
+        tbody.innerHTML = previewData.map(row => `
+            <tr class="bg-white">
+                ${columns.map(col => `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${row[col] !== null ? row[col] : ''}
+                    </td>
+                `).join('')}
+            </tr>
+        `).join('');
     }
 }
 
@@ -334,93 +333,188 @@ export function getUploadedFiles() {
 
 // Initialize upload area and file list
 export function initializeUpload() {
-    console.log('Initializing upload...'); // Debug log
-    
-    // Wait for elements to be available
-    const maxAttempts = 10;
-    let attempts = 0;
-    
-    function tryInitialize() {
-        // Wait for DOM to be ready
-        if (document.readyState !== 'complete') {
-            attempts++;
-            if (attempts < maxAttempts) {
-                console.log(`DOM not ready, retrying... (${attempts}/${maxAttempts})`);
-                setTimeout(tryInitialize, 100);
-                return false;
-            }
-            console.error('DOM not ready after maximum attempts');
-            return false;
-        }
-        
-        const uploadArea = document.getElementById('upload-area');
-        let fileInput = document.getElementById('file-input');
-        let chooseFilesButton = document.getElementById('choose-files-button');
-        
-        if (!uploadArea || !fileInput || !chooseFilesButton) {
-            attempts++;
-            if (attempts < maxAttempts) {
-                console.log(`Elements not found, retrying... (${attempts}/${maxAttempts})`);
-                setTimeout(tryInitialize, 100);
-                return false;
-            }
-            console.error('Upload elements not found after maximum attempts');
-            return false;
-        }
-        
-        console.log('Found all required elements, initializing...'); // Debug log
-        
-        // Reset file input
-        fileInput.value = '';
-        
-        // Drag and drop events
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, unhighlight, false);
-        });
-        
-        uploadArea.addEventListener('drop', handleDrop);
-        
-        // Remove existing event listeners from file input
-        const newFileInput = fileInput.cloneNode(true);
-        fileInput.parentNode.replaceChild(newFileInput, fileInput);
-        fileInput = newFileInput; // Update reference to new element
-        
-        // Add fresh event listener
-        fileInput.addEventListener('change', handleFileSelect);
-        
-        // Choose files button event
-        if (chooseFilesButton) {
-            // Remove existing event listeners
-            const newButton = chooseFilesButton.cloneNode(true);
-            chooseFilesButton.parentNode.replaceChild(newButton, chooseFilesButton);
-            chooseFilesButton = newButton; // Update reference to new element
-            
-            // Add fresh event listener
-            chooseFilesButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                fileInput.click();
-            });
-        }
-        
-        console.log('Upload initialized successfully'); // Debug log
-        return true;
+    // Check if document is still loading
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeUpload);
+        return;
     }
     
-    return tryInitialize();
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-upload');
+    const chooseFilesButton = document.getElementById('choose-files-button');
+    const processButton = document.getElementById('process-btn');
+    
+    if (!uploadArea || !fileInput || !chooseFilesButton) {
+        console.warn('Upload elements not found, please check your HTML');
+        return;
+    }
+    
+    console.log('Found all required elements, initializing...'); 
+    
+    // Reset file input
+    fileInput.value = '';
+    
+    // Drag and drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    uploadArea.addEventListener('drop', handleDrop);
+    fileInput.addEventListener('change', handleFileSelect);
+    chooseFilesButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fileInput.click();
+    });
+    
+    // Process Data button handler
+    if (processButton) {
+        processButton.addEventListener('click', async () => {
+            try {
+                // Disable button and show loading state
+                processButton.disabled = true;
+                processButton.innerHTML = '<span class="animate-spin">↻</span> Processing...';
+
+                const taskId = getCurrentTaskId();
+                if (!taskId) {
+                    throw new Error('No task ID available');
+                }
+
+                // Get files directly from localStorage
+                const storedFiles = localStorage.getItem('uploadedFiles');
+                const files = storedFiles ? JSON.parse(storedFiles) : [];
+                console.log('Files from localStorage:', files); // Debug log
+                
+                if (!files || files.length === 0) {
+                    throw new Error('No files available to process');
+                }
+
+                // Emit process_data event via socket
+                socket.emit('process_data', { 
+                    task_id: taskId,
+                    filename: files[0] // Send the first file to process
+                });
+                
+                showToast('Processing started successfully', 'success');
+
+            } catch (error) {
+                console.error('Error processing data:', error);
+                showToast(error.message || 'Failed to start processing', 'error');
+            } finally {
+                // Reset button state
+                processButton.disabled = false;
+                processButton.innerHTML = 'Process Data';
+            }
+        });
+    }
+    
+    console.log('Upload initialized successfully');
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    if (initializeUpload()) {
-        console.log('Initial upload setup complete'); // Debug log
-    }
-});
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeUpload);
+} else {
+    initializeUpload();
+}
+
+// File input change handler
+if (fileInput) {
+    fileInput.addEventListener('change', async (event) => {
+        console.log('File input change event triggered'); // Debug log
+        
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+            console.log('No files selected');
+            return;
+        }
+
+        // Show progress section and hide upload area
+        if (progressSection) progressSection.classList.remove('hidden');
+        if (uploadArea) uploadArea.classList.add('hidden');
+
+        try {
+            console.log('Starting new upload...');
+            
+            // Get or create task ID
+            let taskId = getCurrentTaskId();
+            if (!taskId) {
+                taskId = generateUUID();
+                setCurrentTaskId(taskId);
+            }
+            console.log('Set task ID:', taskId);
+
+            // Create FormData and append file
+            const formData = new FormData();
+            formData.append('file', files[0]);
+            formData.append('task_id', taskId);
+
+            // Upload file
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const result = await response.json();
+            console.log('Upload response:', result);
+
+            // Add file to state
+            addFileToUploadedFiles(files[0].name);
+            
+            // Update UI
+            updateFilesList();
+            showToast('File uploaded successfully', 'success');
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            showToast('Upload failed: ' + error.message, 'error');
+            
+            // Reset UI on error
+            if (progressSection) progressSection.classList.add('hidden');
+            if (uploadArea) uploadArea.classList.remove('hidden');
+        } finally {
+            // Reset file input
+            fileInput.value = '';
+            console.log('Upload completed, resetting state...');
+        }
+    });
+}
+
+// Drag and drop handlers
+if (uploadArea) {
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.add('border-blue-500');
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('border-blue-500');
+    });
+
+    uploadArea.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('border-blue-500');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+}

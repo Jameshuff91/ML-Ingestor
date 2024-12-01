@@ -257,20 +257,52 @@ export function closePreviewModal() {
 
 export function initializeFileManagement() {
     console.log('Initializing file management...'); // Debug log
+    
     // Initialize process button handler
     const processButton = document.getElementById('process-button');
+    console.log('Process button found:', processButton !== null); // Debug log
+    
     if (processButton) {
-        processButton.addEventListener('click', () => {
-            const taskId = getCurrentTaskId();
-            if (taskId) {
-                showToast('Starting data processing...', 'info');
-                socket.emit('process_data', { task_id: taskId });
-                console.log('Emitted process_data with task ID:', taskId);
-            } else {
-                console.error('No task ID available for processing');
-                showToast('Error: Unable to start processing', 'error');
+        processButton.addEventListener('click', async () => {
+            try {
+                // Disable button and show loading state
+                processButton.disabled = true;
+                processButton.innerHTML = '<span class="animate-spin">↻</span> Processing...';
+
+                const taskId = getCurrentTaskId();
+                if (!taskId) {
+                    throw new Error('No task ID available');
+                }
+
+                const files = getUploadedFiles();
+                console.log('Files to process:', files); // Debug log
+                
+                if (!files || files.length === 0) {
+                    throw new Error('No files available to process');
+                }
+
+                // Emit process_data event via socket
+                socket.emit('process_data', { 
+                    task_id: taskId,
+                    filename: files[0] // Send the first file to process
+                });
+                
+                showToast('Processing started successfully', 'success');
+
+            } catch (error) {
+                console.error('Error processing data:', error);
+                showToast(error.message || 'Failed to start processing', 'error');
+            } finally {
+                // Reset button state
+                processButton.disabled = false;
+                processButton.innerHTML = 'Process Data';
             }
         });
+        
+        // Add initial visibility check
+        const hasFiles = getUploadedFiles().length > 0;
+        processButton.classList.toggle('hidden', !hasFiles);
+        console.log('Initial process button visibility:', !processButton.classList.contains('hidden')); // Debug log
     }
     
     const fileListElement = document.getElementById('file-list');
@@ -284,27 +316,26 @@ export function addUploadedFile(file) {
     console.log('Adding uploaded file:', file); // Debug log
     try {
         const files = getUploadedFiles();
-        files.push({
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            uploadedAt: new Date().toISOString()
-        });
-        localStorage.setItem('uploadedFiles', JSON.stringify(files));
-        updateFilesList();
+        if (!files.includes(file.name)) {
+            files.push(file.name);
+            localStorage.setItem('uploadedFiles', JSON.stringify(files));
+            updateFilesList();
+            console.log('Updated files list:', files); // Debug log
+        }
     } catch (error) {
-        console.error('Error adding uploaded file:', error); // Debug log
+        console.error('Error adding uploaded file:', error);
     }
 }
 
 export function removeUploadedFile(fileName) {
-    console.log('Removing uploaded file:', fileName); // Debug log
+    console.log('Removing uploaded file:', fileName);
     try {
-        const files = getUploadedFiles().filter(file => file.name !== fileName);
+        const files = getUploadedFiles().filter(name => name !== fileName);
         localStorage.setItem('uploadedFiles', JSON.stringify(files));
         updateFilesList();
+        console.log('Updated files list after removal:', files); // Debug log
     } catch (error) {
-        console.error('Error removing uploaded file:', error); // Debug log
+        console.error('Error removing uploaded file:', error);
     }
 }
 

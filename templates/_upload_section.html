@@ -48,11 +48,12 @@
 
 <script type="module">
     import { initializeUpload } from '/static/js/upload.js';
-    import { updateFilesList } from '/static/js/file-management.js';
+    import { updateFilesList, initializeFileManagement } from '/static/js/file-management.js';
     
     document.addEventListener('DOMContentLoaded', () => {
         console.log('Initializing upload...'); // Debug log
         initializeUpload();
+        initializeFileManagement();
         
         // Listen for file upload events
         document.addEventListener('fileUploaded', () => {

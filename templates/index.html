@@ -880,17 +880,41 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            // Socket is already initialized in socket.js
-            if (!socket) {
-                throw new Error('Socket.IO connection not available');
-            }
+            // Initialize upload area elements
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-upload');
+            const chooseFilesButton = document.getElementById('choose-files-button');
             
-            // Initialize upload functionality
-            if (initializeUpload()) {
-                console.log('File upload handlers initialized');
-            } else {
-                console.error('Failed to initialize upload handlers');
+            if (!uploadArea || !fileInput || !chooseFilesButton) {
+                throw new Error('Required upload elements not found');
             }
+
+            // Add drag and drop event listeners
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults);
+                document.body.addEventListener(eventName, preventDefaults);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => highlight(uploadArea));
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => unhighlight(uploadArea));
+            });
+
+            // Add drop handler
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Add file input change handler
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Add choose files button click handler
+            chooseFilesButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileInput.click();
+            });
             
             // Initialize other components
             initializeCollapsibleSections();
@@ -900,178 +924,8 @@
             
             // Make toggleSection available globally
             window.toggleSection = toggleSection;
-
-            // Socket is already initialized in socket.js
-            if (!socket) {
-                throw new Error('Socket.IO connection not available');
-            }
-            console.log('Socket.IO connection available');
             
-            // Initialize multi-file analysis
-            initializeMultiFileAnalysis();
-            
-            // Initialize upload area
-            const uploadArea = document.getElementById('upload-area');
-            const fileInput = document.getElementById('file-upload');
-            const chooseFilesButton = document.getElementById('choose-files-button');
-            
-            if (!uploadArea || !fileInput || !chooseFilesButton) {
-                throw new Error('Required DOM elements not found');
-            }
-            
-            // Remove any existing event listeners
-            uploadArea.replaceWith(uploadArea.cloneNode(true));
-            fileInput.replaceWith(fileInput.cloneNode(true));
-            chooseFilesButton.replaceWith(chooseFilesButton.cloneNode(true));
-            
-            // Get fresh references after replacing
-            const newUploadArea = document.getElementById('upload-area');
-            const newFileInput = document.getElementById('file-upload');
-            const newChooseFilesButton = document.getElementById('choose-files-button');
-            
-            // Single event listener for file input change
-            newFileInput.addEventListener('change', (e) => {
-                if (!newFileInput.disabled) {
-                    handleFileSelect(e);
-                }
-            }, { once: true });  // Use once: true to ensure it only fires once
-            
-            // Single click handler for choose files button
-            newChooseFilesButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!newFileInput.disabled) {
-                    newFileInput.click();
-                }
-            });
-            
-            // Prevent default drag behaviors
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                newUploadArea.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                });
-            });
-            
-            // Handle file drop
-            newUploadArea.addEventListener('drop', (e) => {
-                if (!newFileInput.disabled) {
-                    handleDrop(e);
-                }
-            }, { once: true });  // Use once: true to ensure it only fires once
-            
-            console.log('File upload handlers initialized');
-            
-            // Initialize Tabs
-            initializeTabs(); // Initialize the tab management
-            
-            // Process button click handler
-            document.getElementById('process-btn')?.addEventListener('click', function() {
-                const taskId = getCurrentTaskId();
-                if (!taskId) {
-                    showToast('No file selected for processing', 'error');
-                    return;
-                }
-                
-                // Show processing progress section
-                document.getElementById('processing-progress-section').classList.remove('hidden');
-                
-                // Reset progress bar
-                updateProgress('processing-progress-bar', 'processing-progress-percentage', 0);
-                
-                // Emit processing event via socket
-                socket.emit('process_data', { task_id: taskId });
-            });
-            
-            // Add socket event listener for processing started
-            socket.on('processing_started', (data) => {
-                console.log('Processing started:', data);
-                document.getElementById('processing-progress-section').classList.remove('hidden');
-                document.getElementById('error-section').classList.add('hidden');
-            });
-            
-            // Export button handler
-            document.getElementById('export-action-btn')?.addEventListener('click', () => {
-                const config = {
-                    task_id: getCurrentTaskId(),
-                    format: document.getElementById('export-format').value,
-                    compression: document.getElementById('export-compression').value
-                };
-                
-                fetch('/export', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(config)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = data.download_url;
-                    } else {
-                        showToast(data.error || 'Export failed', 'error');
-                    }
-                })
-                .catch(error => {
-                    showToast('Network error', 'error');
-                });
-            });
-            
-            // Custom ERD upload handler
-            document.getElementById('custom-erd-input')?.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    if (!file.type.startsWith('image/')) {
-                        showToast('Please upload an image file', 'error');
-                        return;
-                    }
-                    
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const erdImage = document.getElementById('erd-image');
-                        erdImage.src = e.target.result;
-                        erdImage.classList.remove('hidden');
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
-            // Send chat message handler (if Chat Tab is used)
-            document.getElementById('send-chat')?.addEventListener('click', () => {
-                const message = document.getElementById('chat-input').value.trim();
-                if (message) {
-                    // Emit chat message via socket or handle accordingly
-                    socket.emit('chat_message', { message: message });
-                    document.getElementById('chat-input').value = '';
-                }
-            });
-            
-            // Process chat messages received via socket
-            socket.on('chat_response', (data) => {
-                const chatMessages = document.getElementById('chat-messages');
-                const messageElement = document.createElement('div');
-                messageElement.classList.add('mb-2');
-                messageElement.innerHTML = `<span class="font-medium text-gray-900">Assistant:</span> ${data.response}`;
-                chatMessages.appendChild(messageElement);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            });
-
-            // Collapse/Expand buttons
-            const collapseBtns = document.querySelectorAll('.collapse-btn');
-            collapseBtns.forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const collapsibleContent = btn.nextElementSibling;
-                    if (collapsibleContent.classList.contains('expanded')) {
-                        collapsibleContent.classList.remove('expanded');
-                        btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
-                    } else {
-                        collapsibleContent.classList.add('expanded');
-                        btn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-                    }
-                });
-            });
-
+            console.log('File upload handlers initialized successfully');
         } catch (error) {
             console.error('Error initializing page:', error);
             showToast('An error occurred while initializing the page.', 'error');
