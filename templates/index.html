@@ -869,7 +869,7 @@
 <script type="module" src="{{ url_for('static', filename='js/file-management.js') }}"></script>
 <script type="module">
     import { socket } from '/static/js/socket.js';
-    import { handleDrop, handleFileSelect, preventDefaults, highlight, unhighlight } from '/static/js/upload.js';
+    import { handleDrop, handleFileSelect, preventDefaults, highlight, unhighlight, initializeUpload } from '/static/js/upload.js';
     import { showResults, showTab, updateProgress, toggleSection, initializeCollapsibleSections } from '/static/js/validation.js';
     import { showToast } from '/static/js/utils.js';
     import { initializeMultiFileAnalysis } from '/static/js/correlation.js';
@@ -884,10 +884,20 @@
             if (!socket) {
                 throw new Error('Socket.IO connection not available');
             }
-
-            // Initialize collapsible sections
+            
+            // Initialize upload functionality
+            if (initializeUpload()) {
+                console.log('File upload handlers initialized');
+            } else {
+                console.error('Failed to initialize upload handlers');
+            }
+            
+            // Initialize other components
             initializeCollapsibleSections();
-
+            initializeMultiFileAnalysis();
+            initializeTabs();
+            initChat();
+            
             // Make toggleSection available globally
             window.toggleSection = toggleSection;
 
@@ -1046,8 +1056,6 @@
                 chatMessages.appendChild(messageElement);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             });
-
-            initChat();  // Initialize chat functionality
 
             // Collapse/Expand buttons
             const collapseBtns = document.querySelectorAll('.collapse-btn');

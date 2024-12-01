@@ -9,6 +9,8 @@ export function updateFilesList() {
     const filesList = document.getElementById('preview-files-list');
     const previewSection = document.getElementById('preview-section');
     const uploadArea = document.getElementById('upload-area');
+    const progressSection = document.getElementById('progress-section');
+    const processingProgressSection = document.getElementById('processing-progress-section');
     
     if (!filesList || !previewSection) {
         console.error('Required elements not found'); // Debug log
@@ -53,15 +55,35 @@ export function updateFilesList() {
     });
     
     // Show/hide sections based on files
-    previewSection.classList.toggle('hidden', files.length === 0);
-    if (uploadArea) {
-        uploadArea.classList.toggle('hidden', files.length > 0);
+    const hasFiles = files.length > 0;
+    previewSection.classList.toggle('hidden', !hasFiles);
+    uploadArea.classList.toggle('hidden', hasFiles);
+    
+    // Reset progress bars if no files
+    if (!hasFiles) {
+        if (progressSection) {
+            const progressBar = progressSection.querySelector('#progress-bar');
+            const progressStatus = progressSection.querySelector('#progress-status');
+            if (progressBar) progressBar.style.width = '0%';
+            if (progressStatus) progressStatus.textContent = '0%';
+            progressSection.classList.add('hidden');
+        }
+        
+        if (processingProgressSection) {
+            const processingProgressBar = processingProgressSection.querySelector('#processing-progress-bar');
+            const processingProgressStatus = processingProgressSection.querySelector('#processing-progress-status');
+            const processingProgressPercentage = processingProgressSection.querySelector('#processing-progress-percentage');
+            if (processingProgressBar) processingProgressBar.style.width = '0%';
+            if (processingProgressStatus) processingProgressStatus.textContent = 'Processing';
+            if (processingProgressPercentage) processingProgressPercentage.textContent = '0%';
+            processingProgressSection.classList.add('hidden');
+        }
     }
     
     // Update process button visibility
     const processButton = document.getElementById('process-button');
     if (processButton) {
-        processButton.classList.toggle('hidden', files.length === 0);
+        processButton.classList.toggle('hidden', !hasFiles);
     }
 }
 
@@ -159,7 +181,7 @@ export async function previewFile(filename) {
 
 export async function deleteFile(filename) {
     try {
-        console.log('Attempting to delete file:', filename); // Debug log
+        console.log('Attempting to delete file:', filename);
         const response = await fetch(`/delete_file/${filename}`, {
             method: 'DELETE'
         });
@@ -171,34 +193,59 @@ export async function deleteFile(filename) {
         const data = await response.json();
         
         if (data.message === 'File deleted successfully') {
-            console.log('File deleted successfully, updating state and UI'); // Debug log
+            console.log('File deleted successfully, updating state and UI');
             
             // Update state first
             removeFileFromUploadedFiles(filename);
             
             // Force UI refresh
             const files = getUploadedFiles();
-            console.log('Current files after deletion:', files); // Debug log
+            console.log('Current files after deletion:', files);
             
+            // Update UI
             updateFilesList();
-            console.log('UI updated after file deletion'); // Debug log
+            console.log('UI updated after file deletion');
             
-            // Show success message
+            // If no files left, reinitialize upload functionality
+            if (files.length === 0) {
+                console.log('No files left, reinitializing upload...');
+                
+                // Reset upload area visibility
+                const uploadArea = document.getElementById('upload-area');
+                const uploadedFiles = document.getElementById('uploaded-files');
+                if (uploadArea && uploadedFiles) {
+                    uploadArea.style.display = 'block';
+                    uploadedFiles.classList.add('hidden');
+                }
+                
+                // Wait longer for DOM updates and try multiple times if needed
+                let attempts = 0;
+                const maxAttempts = 5;
+                const tryReinitialize = () => {
+                    attempts++;
+                    import('/static/js/upload.js').then(module => {
+                        if (module.initializeUpload()) {
+                            console.log('Upload reinitialized successfully');
+                        } else if (attempts < maxAttempts) {
+                            console.log(`Retrying reinitialization... (${attempts}/${maxAttempts})`);
+                            setTimeout(tryReinitialize, 500);
+                        } else {
+                            console.error('Failed to reinitialize upload after maximum attempts');
+                        }
+                    }).catch(err => {
+                        console.error('Error reinitializing upload:', err);
+                    });
+                };
+                
+                setTimeout(tryReinitialize, 500);
+            }
+            
             showToast('File deleted successfully', 'success');
-            
-            // Dispatch event
-            const event = new CustomEvent('fileDeleted', {
-                detail: { filename }
-            });
-            document.dispatchEvent(event);
-            
             return true;
-        } else {
-            throw new Error(data.message || 'Failed to delete file');
         }
     } catch (error) {
-        console.error('Delete error:', error);
-        showToast(error.message || 'Error deleting file', 'error');
+        console.error('Error deleting file:', error);
+        showToast('Error deleting file', 'error');
         return false;
     }
 }

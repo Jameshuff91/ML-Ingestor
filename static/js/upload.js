@@ -45,10 +45,15 @@ export function handleFileSelect(e) {
     }
 }
 
-async function uploadFiles(files) {
-    if (isUploading) return;
+// Make uploadFiles available globally and export it
+export async function uploadFiles(files) {
+    if (isUploading) {
+        console.log('Upload already in progress, skipping...'); // Debug log
+        return;
+    }
     
     try {
+        console.log('Starting new upload...'); // Debug log
         isUploading = true;
         
         // Show upload progress
@@ -102,7 +107,7 @@ async function uploadFiles(files) {
             // Store the task ID (use the first task ID if multiple files were uploaded)
             if (data.task_ids && data.task_ids.length > 0) {
                 setCurrentTaskId(data.task_ids[0]);
-                console.log('Set task ID:', data.task_ids[0]);
+                console.log('Set task ID:', data.task_ids[0]); // Debug log
             }
             
             // Update UI
@@ -121,33 +126,24 @@ async function uploadFiles(files) {
                     addFileToUploadedFiles(filename);
                 });
                 
-                // Update UI to show preview section
-                const previewSection = document.getElementById('preview-section');
-                const uploadArea = document.getElementById('upload-area');
-                if (previewSection && uploadArea) {
-                    uploadArea.classList.add('hidden');
-                    previewSection.classList.remove('hidden');
-                }
-                
                 // Update the files list in the preview section
                 updateFilesList();
-                
-                // Show process button
-                const processButton = document.getElementById('process-button');
-                if (processButton) {
-                    processButton.classList.remove('hidden');
-                }
             }
         } else {
             throw new Error(data.message || 'Upload failed');
         }
     } catch (error) {
+        console.error('Upload error:', error); // Debug log
         updateProgress(0, 'Upload failed');
         showToast(error.message || 'Error uploading files', 'error');
     } finally {
+        console.log('Upload completed, resetting state...'); // Debug log
         isUploading = false;
     }
 }
+
+// Make uploadFiles available globally
+window.uploadFiles = uploadFiles;
 
 export async function handleFile(file) {
     try {
@@ -333,55 +329,98 @@ function removeFile(filename) {
 
 // Get list of uploaded files
 export function getUploadedFiles() {
-    // Return uploaded files from state
-    // This function should be updated to get the uploaded files from the state
-    // For now, it's just returning an empty array
-    return [];
+    return window.uploadedFiles || [];
 }
 
 // Initialize upload area and file list
 export function initializeUpload() {
-    const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('file-input');
-    const chooseFilesButton = document.getElementById('choose-files-button');
+    console.log('Initializing upload...'); // Debug log
     
-    if (!uploadArea || !fileInput) {
-        console.error('Upload elements not found');
-        return;
-    }
+    // Wait for elements to be available
+    const maxAttempts = 10;
+    let attempts = 0;
     
-    // Drag and drop events
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
-    
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
-    });
-    
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
-    });
-    
-    uploadArea.addEventListener('drop', handleDrop);
-    
-    // File input events
-    fileInput.addEventListener('change', handleFileSelect, { once: true });
-    
-    // Choose files button event
-    if (chooseFilesButton) {
-        chooseFilesButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!fileInput.disabled) {
-                fileInput.click();
+    function tryInitialize() {
+        // Wait for DOM to be ready
+        if (document.readyState !== 'complete') {
+            attempts++;
+            if (attempts < maxAttempts) {
+                console.log(`DOM not ready, retrying... (${attempts}/${maxAttempts})`);
+                setTimeout(tryInitialize, 100);
+                return false;
             }
+            console.error('DOM not ready after maximum attempts');
+            return false;
+        }
+        
+        const uploadArea = document.getElementById('upload-area');
+        let fileInput = document.getElementById('file-input');
+        let chooseFilesButton = document.getElementById('choose-files-button');
+        
+        if (!uploadArea || !fileInput || !chooseFilesButton) {
+            attempts++;
+            if (attempts < maxAttempts) {
+                console.log(`Elements not found, retrying... (${attempts}/${maxAttempts})`);
+                setTimeout(tryInitialize, 100);
+                return false;
+            }
+            console.error('Upload elements not found after maximum attempts');
+            return false;
+        }
+        
+        console.log('Found all required elements, initializing...'); // Debug log
+        
+        // Reset file input
+        fileInput.value = '';
+        
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
         });
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        uploadArea.addEventListener('drop', handleDrop);
+        
+        // Remove existing event listeners from file input
+        const newFileInput = fileInput.cloneNode(true);
+        fileInput.parentNode.replaceChild(newFileInput, fileInput);
+        fileInput = newFileInput; // Update reference to new element
+        
+        // Add fresh event listener
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // Choose files button event
+        if (chooseFilesButton) {
+            // Remove existing event listeners
+            const newButton = chooseFilesButton.cloneNode(true);
+            chooseFilesButton.parentNode.replaceChild(newButton, chooseFilesButton);
+            chooseFilesButton = newButton; // Update reference to new element
+            
+            // Add fresh event listener
+            chooseFilesButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileInput.click();
+            });
+        }
+        
+        console.log('Upload initialized successfully'); // Debug log
+        return true;
     }
     
-    // Initialize uploaded files list
-    updateUploadedFilesList();
+    return tryInitialize();
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', initializeUpload);
+document.addEventListener('DOMContentLoaded', () => {
+    if (initializeUpload()) {
+        console.log('Initial upload setup complete'); // Debug log
+    }
+});
