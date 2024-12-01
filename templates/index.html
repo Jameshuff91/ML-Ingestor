@@ -1,26 +1,38 @@
-{% extends "base.html" %}
+{% extends "base.html" %} 
 
 {% block title %}ML Ingestor - Data Processing{% endblock %}
 
 {% block head %}
 <style>
+    /* Tab Styles */
+    .tab-button {
+        border: none;
+        background: none;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #6b7280; /* Gray-500 */
+        border-bottom: 2px solid transparent;
+        transition: color 0.3s, border-bottom-color 0.3s;
+    }
+
     .tab-button.active {
-        color: rgb(79, 70, 229);
+        color: rgb(79, 70, 229); /* Indigo-600 */
         border-bottom-color: rgb(79, 70, 229);
     }
-    
+
     /* Add styles for collapsible sections */
     .transition-all {
         transition-property: all;
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
         transition-duration: 200ms;
     }
-    
+
     .overflow-hidden {
         overflow: hidden;
         max-height: 0;
     }
-    
+
     /* Styles for Recommendations */
     .recommendation {
         background-color: #f9f9f9;
@@ -78,6 +90,368 @@
         visibility: visible;
         opacity: 1;
     }
+
+    /* Utility Classes */
+    .space-y-6 > * + * {
+        margin-top: 1.5rem;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    /* Additional Styles */
+    .bg-white {
+        background-color: #ffffff;
+    }
+
+    .shadow {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 
+                    0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    .rounded-lg {
+        border-radius: 0.5rem;
+    }
+
+    /* Responsive Table Styles */
+    .overflow-x-auto {
+        overflow-x: auto;
+    }
+
+    .min-w-full {
+        min-width: 100%;
+    }
+
+    .divide-y > :not(template) ~ :not(template) {
+        border-top-width: 1px;
+        border-color: #e5e7eb; /* Gray-200 */
+    }
+
+    .bg-gray-50 {
+        background-color: #f9fafb;
+    }
+
+    .bg-gray-200 {
+        background-color: #e5e7eb;
+    }
+
+    .bg-gray-300 {
+        background-color: #d1d5db;
+    }
+
+    .bg-gray-500 {
+        background-color: #6b7280;
+    }
+
+    .bg-indigo-600 {
+        background-color: #4f46e5;
+    }
+
+    .bg-indigo-700 {
+        background-color: #4338ca;
+    }
+
+    .text-gray-900 {
+        color: #111827;
+    }
+
+    .text-gray-700 {
+        color: #374151;
+    }
+
+    .text-gray-600 {
+        color: #4b5563;
+    }
+
+    .text-gray-500 {
+        color: #6b7280;
+    }
+
+    .text-sm {
+        font-size: 0.875rem;
+    }
+
+    .text-xl {
+        font-size: 1.25rem;
+    }
+
+    .text-lg {
+        font-size: 1.125rem;
+    }
+
+    .font-semibold {
+        font-weight: 600;
+    }
+
+    .font-medium {
+        font-weight: 500;
+    }
+
+    .font-bold {
+        font-weight: 700;
+    }
+
+    .flex {
+        display: flex;
+    }
+
+    .flex-1 {
+        flex: 1 1 0%;
+    }
+
+    .items-center {
+        align-items: center;
+    }
+
+    .justify-between {
+        justify-content: space-between;
+    }
+
+    .space-x-8 > * + * {
+        margin-left: 2rem;
+    }
+
+    .space-x-2 > * + * {
+        margin-left: 0.5rem;
+    }
+
+    .space-y-4 > * + * {
+        margin-top: 1rem;
+    }
+
+    .px-4 {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .py-2 {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .mb-4 {
+        margin-bottom: 1rem;
+    }
+
+    .mt-4 {
+        margin-top: 1rem;
+    }
+
+    .mt-6 {
+        margin-top: 1.5rem;
+    }
+
+    .mb-2 {
+        margin-bottom: 0.5rem;
+    }
+
+    .mb-8 {
+        margin-bottom: 2rem;
+    }
+
+    .border-2 {
+        border-width: 2px;
+    }
+
+    .border-dashed {
+        border-style: dashed;
+    }
+
+    .border-gray-300 {
+        border-color: #d1d5db;
+    }
+
+    .border-gray-200 {
+        border-color: #e5e7eb;
+    }
+
+    .border-transparent {
+        border-color: transparent;
+    }
+
+    .rounded {
+        border-radius: 0.25rem;
+    }
+
+    .rounded-full {
+        border-radius: 9999px;
+    }
+
+    .rounded-md {
+        border-radius: 0.375rem;
+    }
+
+    .rounded-lg {
+        border-radius: 0.5rem;
+    }
+
+    .transition-colors {
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    }
+
+    .duration-200 {
+        transition-duration: 200ms;
+    }
+
+    .hover\:border-indigo-500:hover {
+        border-color: #6366f1;
+    }
+
+    .hover\:bg-indigo-700:hover {
+        background-color: #4338ca;
+    }
+
+    .hover\:bg-indigo-600:hover {
+        background-color: #4f46e5;
+    }
+
+    .hover\:bg-gray-200:hover {
+        background-color: #e5e7eb;
+    }
+
+    .hover\:bg-gray-100:hover {
+        background-color: #f3f4f6;
+    }
+
+    .focus\:outline-none:focus {
+        outline: none;
+    }
+
+    .focus\:ring-indigo-500:focus {
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
+    }
+
+    .focus\:ring-offset-2:focus {
+        --tw-ring-offset-width: 2px;
+        box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000);
+    }
+
+    .shadow-sm {
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+    }
+
+    .shadow-lg {
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 
+                    0 4px 6px -4px rgba(0,0,0,0.1);
+    }
+
+    .transform {
+        transform: translate(0);
+    }
+
+    .transition-transform {
+        transition-property: transform;
+    }
+
+    .duration-300 {
+        transition-duration: 300ms;
+    }
+
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    .list-disc {
+        list-style-type: disc;
+    }
+
+    .pl-5 {
+        padding-left: 1.25rem;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .grid {
+        display: grid;
+    }
+
+    .grid-cols-1 {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+
+    .md\:grid-cols-2 {
+        @media (min-width: 768px) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    .md\:grid-cols-3 {
+        @media (min-width: 768px) {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    .gap-4 {
+        gap: 1rem;
+    }
+
+    .w-full {
+        width: 100%;
+    }
+
+    .max-w-full {
+        max-width: 100%;
+    }
+
+    .h-auto {
+        height: auto;
+    }
+
+    .flex-1 {
+        flex: 1 1 0%;
+    }
+
+    .flex-col {
+        flex-direction: column;
+    }
+
+    .h-\[500px\] {
+        height: 500px;
+    }
+
+    .rounded-md {
+        border-radius: 0.375rem;
+    }
+
+    .border-gray-300 {
+        border-color: #d1d5db;
+    }
+
+    .border-gray-200 {
+        border-color: #e5e7eb;
+    }
+
+    /* Add any additional custom styles below */
+    .collapse-btn {
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+
+    .collapse-btn i {
+        transition: transform 0.3s ease;
+    }
+
+    .collapse-btn:not(.show) i {
+        transform: rotate(180deg);
+    }
+
+    .collapsible-container {
+        cursor: pointer;
+    }
+
+    .collapsible-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+
+    .collapsible-content.expanded {
+        max-height: 2000px; /* Large enough to show content */
+        transition: max-height 0.3s ease-in;
+    }
 </style>
 {% endblock %}
 
@@ -87,20 +461,74 @@
     <div class="bg-white shadow rounded-lg">
         <div class="p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Data Upload</h2>
-            <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-indigo-500 transition-colors duration-200">
-                <div class="space-y-4">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400"></i>
-                    <p class="text-gray-600">
-                        Drag and drop your data file here<br>
-                        <span class="text-sm">or</span>
-                    </p>
-                    <input type="file" id="file-input" class="hidden" accept=".csv,.xlsx,.xls">
-                    <button onclick="document.getElementById('file-input').click()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Choose File
-                    </button>
-                    <p class="text-xs text-gray-500">
-                        Supported formats: CSV, Excel (.xlsx, .xls)
-                    </p>
+            <div id="upload-area" class="flex flex-col items-center justify-center w-full">
+                <label for="file-upload" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p class="mb-2 text-sm text-gray-500">
+                            <span class="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p class="text-xs text-gray-500 mb-4">CSV files (you can select multiple files)</p>
+                        <button id="choose-files-button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Choose Files
+                        </button>
+                    </div>
+                    <input id="file-upload" name="file-upload" type="file" class="hidden" multiple accept=".csv" />
+                </label>
+                <div id="uploaded-files" class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-3">Uploaded Files</h3>
+                    <div id="uploaded-files-list" class="space-y-2 bg-gray-50 rounded-lg p-4">
+                        <!-- Files will be listed here dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Preview Modal -->
+            <div id="preview-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+                <div class="relative top-20 mx-auto p-5 border w-4/5 shadow-lg rounded-md bg-white">
+                    <div class="mt-3">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4" id="preview-filename"></h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200" id="preview-table">
+                                <!-- Preview content will be dynamically added here -->
+                            </table>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button onclick="closePreviewModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-section" class="mt-4 hidden">
+                <div class="flex items-center">
+                    <div class="flex-1">
+                        <div class="bg-gray-200 rounded-full h-2.5">
+                            <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <span id="progress-status" class="text-sm text-gray-600">0%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Processing Progress Section -->
+            <div id="processing-progress-section" class="mt-4 hidden">
+                <h3 class="text-md font-semibold text-gray-700 mb-2">Processing Progress</h3>
+                <div class="flex items-center">
+                    <div class="flex-1">
+                        <div class="bg-gray-200 rounded-full h-2.5">
+                            <div id="processing-progress-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex items-center space-x-2">
+                        <span id="processing-progress-status" class="text-sm text-gray-600">Processing</span>
+                        <span id="processing-progress-percentage" class="text-sm font-medium text-gray-900">0%</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -117,35 +545,13 @@
             </div>
             <div class="overflow-x-auto">
                 <table id="preview-table" class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50"></thead>
-                    <tbody class="bg-white divide-y divide-gray-200"></tbody>
+                    <thead class="bg-gray-50">
+                        <!-- Table Headers will be inserted here -->
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- Table Data will be inserted here -->
+                    </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Processing Progress Section -->
-    <div id="progress-section" class="bg-white shadow rounded-lg hidden">
-        <div class="p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Processing Status</h2>
-            <div class="space-y-4">
-                <div class="relative pt-1">
-                    <div class="flex mb-2 items-center justify-between">
-                        <div>
-                            <span id="progress-status" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-200">
-                                Processing
-                            </span>
-                        </div>
-                        <div class="text-right">
-                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-indigo-600">
-                                0%
-                            </span>
-                        </div>
-                    </div>
-                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-indigo-200">
-                        <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600" style="width: 0%"></div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -153,180 +559,272 @@
     <!-- Results Section -->
     <div id="results-section" class="bg-white shadow rounded-lg hidden">
         <div class="p-6">
+            <!-- Tab Navigation -->
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button onclick="showTab('validation')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm active" data-tab="validation">
+                    <button onclick="showTab('validation')" id="validation-tab-btn" class="tab-button active">
                         Validation Results
                     </button>
-                    <button onclick="showTab('correlation')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="correlation">
+                    <button onclick="showTab('correlation')" id="correlation-tab-btn" class="tab-button">
                         Correlation Analysis
                     </button>
-                    <button onclick="showTab('erd')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="erd">
-                        ERD
+                    <button onclick="showTab('chat')" id="chat-tab-btn" class="tab-button">
+                        Chat Assistant
                     </button>
-                    <button onclick="showTab('chat')" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="chat">
-                        Chat Analysis
+                    <button onclick="showTab('export')" id="export-tab-btn" class="tab-button">
+                        Export Data
                     </button>
                 </nav>
             </div>
             
             <div class="mt-4">
-                <!-- Tab content -->
+                <!-- Tab Content -->
+                <!-- Validation Results Tab -->
                 <div id="validation-tab" class="tab-content">
                     <!-- Basic Validation Results -->
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-medium text-gray-900">Basic Validation Results</h3>
-                            <button class="info-button" aria-label="Basic validation info">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <div class="tooltip">
-                                    Basic validation checks fundamental data quality aspects:
-                                    <ul class="list-disc pl-5 mt-2">
-                                        <li>Missing values: Identifies empty or null values</li>
-                                        <li>Negative values: Flags negative numbers in positive-only fields</li>
-                                        <li>Duplicates: Detects identical rows in the dataset</li>
-                                    </ul>
+                    <div id="basic-validation-results" class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="collapsible-container" onclick="toggleSection('basic-validation')">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg font-medium text-gray-900">Basic Validation Results</h3>
+                                    <div class="flex items-center">
+                                        <button class="info-button mr-2" aria-label="Basic validation info" onclick="event.stopPropagation()">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <div class="tooltip">
+                                                Basic validation checks fundamental data quality aspects:
+                                                <ul class="list-disc pl-5 mt-2">
+                                                    <li>Missing values: Identifies empty or null values</li>
+                                                    <li>Negative values: Flags negative numbers in positive-only fields</li>
+                                                    <li>Duplicates: Detects identical rows in the dataset</li>
+                                                </ul>
+                                            </div>
+                                        </button>
+                                        <i id="basic-validation-arrow" class="fas fa-chevron-up"></i>
+                                    </div>
                                 </div>
-                            </button>
+                            </div>
+                            <div id="basic-validation-content" class="collapsible-content expanded">
+                                <div id="basic-validation-results-content"></div>
+                                <div id="basic-validation-recommendation" class="recommendation hidden"></div>
+                            </div>
                         </div>
-                        <div id="basic-validation-results"></div>
-                        <div id="basic-validation-recommendation" class="recommendation hidden"></div>
                     </div>
 
                     <!-- Advanced Validation Results -->
-                    <div class="space-y-4 mt-8">
-                        <h3 class="text-lg font-medium text-gray-900">Advanced Validation Results</h3>
-                        
+                    <div id="advanced-validation-results" class="space-y-4 mt-8">
                         <!-- Data Quality Score -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-md font-medium text-gray-700">Data Quality Score</h4>
-                                <button class="info-button" aria-label="Data quality score info">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="tooltip">
-                                        Data quality score is calculated based on multiple factors:
-                                        <ul class="list-disc pl-5 mt-2">
-                                            <li>Missing values (30% weight)</li>
-                                            <li>Duplicates (10% weight)</li>
-                                            <li>Outliers (20% weight)</li>
-                                            <li>Data distribution (20% weight)</li>
-                                            <li>Data consistency (20% weight)</li>
-                                        </ul>
-                                        <strong>Grading scale:</strong>
-                                        <ul class="list-disc pl-5 mt-2">
-                                            <li>A (90-100): Excellent</li>
-                                            <li>B (80-89): Good</li>
-                                            <li>C (70-79): Fair</li>
-                                            <li>D (60-69): Needs attention</li>
-                                            <li>F (&lt;60): Requires immediate action</li>
-                                        </ul>
-                                    </div>
-                                </button>
-                            </div>
-                            <div id="quality-score-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white p-4 rounded shadow">
-                                    <div class="text-center">
-                                        <div class="text-3xl font-bold" id="overall-quality-score"></div>
-                                        <div class="text-xl font-semibold" id="overall-quality-grade"></div>
-                                        <div class="text-sm text-gray-500">Overall Quality</div>
+                            <div class="collapsible-container" onclick="toggleSection('quality-score')">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-md font-medium text-gray-700">Data Quality Score</h4>
+                                    <div class="flex items-center">
+                                        <button class="info-button mr-2" aria-label="Data quality score info" onclick="event.stopPropagation()">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <div class="tooltip">
+                                                Data quality score is calculated based on multiple factors:
+                                                <ul class="list-disc pl-5 mt-2">
+                                                    <li>Missing values (30% weight)</li>
+                                                    <li>Duplicates (10% weight)</li>
+                                                    <li>Outliers (20% weight)</li>
+                                                    <li>Data distribution (20% weight)</li>
+                                                    <li>Data consistency (20% weight)</li>
+                                                </ul>
+                                            </div>
+                                        </button>
+                                        <i id="quality-score-arrow" class="fas fa-chevron-up"></i>
                                     </div>
                                 </div>
-                                <div class="bg-white p-4 rounded shadow">
-                                    <div id="column-quality-scores"></div>
+                            </div>
+                            <div id="quality-score-content" class="collapsible-content expanded">
+                                <div id="quality-score-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-white p-4 rounded shadow">
+                                        <div class="text-center">
+                                            <div class="text-3xl font-bold" id="overall-quality-score"></div>
+                                            <div class="text-xl font-semibold" id="overall-quality-grade"></div>
+                                            <div class="text-sm text-gray-500">Overall Quality</div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded shadow">
+                                        <div id="column-quality-scores"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div id="quality-recommendation" class="recommendation hidden"></div>
                         </div>
 
                         <!-- Outlier Detection -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-md font-medium text-gray-700">Outlier Detection</h4>
-                                <button class="info-button" aria-label="Outlier detection info">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="tooltip">
-                                        We use two methods to detect outliers:
-                                        • Z-score: Values > 3 standard deviations from mean
-                                        • IQR: Values outside 1.5 × interquartile range
+                            <div class="collapsible-container" onclick="toggleSection('outlier')">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-md font-medium text-gray-700">Outlier Detection</h4>
+                                    <div class="flex items-center">
+                                        <button class="info-button mr-2" aria-label="Outlier detection info" onclick="event.stopPropagation()">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <div class="tooltip">
+                                                We use two methods to detect outliers:
+                                                • Z-score: Values > 3 standard deviations from mean
+                                                • IQR: Values outside 1.5 × interquartile range
 
-                                        Both methods help identify unusual values that might:
-                                        • Be data entry errors
-                                        • Indicate rare but important events
-                                        • Need special handling in your models
+                                                Both methods help identify unusual values that might:
+                                                • Be data entry errors
+                                                • Indicate rare but important events
+                                                • Need special handling in your models
+                                            </div>
+                                        </button>
+                                        <i id="outlier-arrow" class="fas fa-chevron-up"></i>
                                     </div>
-                                </button>
+                                </div>
                             </div>
-                            <div id="outlier-results" class="bg-white p-4 rounded shadow"></div>
-                            <div id="outlier-recommendation" class="recommendation hidden"></div>
+                            <div id="outlier-content" class="collapsible-content expanded">
+                                <div id="outlier-results" class="bg-white p-4 rounded shadow"></div>
+                                <div id="outlier-recommendation" class="recommendation hidden"></div>
+                            </div>
                         </div>
 
                         <!-- Distribution Analysis -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-md font-medium text-gray-700">Distribution Analysis</h4>
-                                <button class="info-button" aria-label="Distribution analysis info">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="tooltip">
-                                        Distribution metrics help understand data shape:
-                                        • Skewness: Measures asymmetry
-                                          - >1 or <-1: Highly skewed
-                                          - Between -1 and 1: Approximately symmetric
-                                        • Kurtosis: Measures tail weight
-                                          - >3: Heavy-tailed (more outliers)
-                                          - =3: Normal distribution
-                                          - <3: Light-tailed
-                                        • Normality tests: p-value > 0.05 suggests normal distribution
+                            <div class="collapsible-container" onclick="toggleSection('distribution')">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-md font-medium text-gray-700">Distribution Analysis</h4>
+                                    <div class="flex items-center">
+                                        <button class="info-button mr-2" aria-label="Distribution analysis info" onclick="event.stopPropagation()">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <div class="tooltip">
+                                                Analyzes the statistical distribution of numeric columns:
+                                                <ul class="list-disc pl-5 mt-2">
+                                                    <li>Mean, median, mode</li>
+                                                    <li>Standard deviation</li>
+                                                    <li>Skewness and kurtosis</li>
+                                                </ul>
+                                            </div>
+                                        </button>
+                                        <i id="distribution-arrow" class="fas fa-chevron-up"></i>
                                     </div>
-                                </button>
+                                </div>
                             </div>
-                            <div id="distribution-results" class="bg-white p-4 rounded shadow"></div>
-                            <div id="distribution-recommendation" class="recommendation hidden"></div>
+                            <div id="distribution-content" class="collapsible-content expanded">
+                                <div id="distribution-results"></div>
+                            </div>
                         </div>
 
                         <!-- Multicollinearity -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-md font-medium text-gray-700">Multicollinearity Detection</h4>
-                                <button class="info-button" aria-label="Multicollinearity detection info">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="tooltip">
-                                        Multicollinearity issues arise when features are highly correlated:
-                                        • Correlation > 0.8: Strong relationship
-                                        • Can cause problems in ML models:
-                                          - Unstable coefficient estimates
-                                          - Reduced model interpretability
-                                          - Overfitting risks
-                                        
-                                        Solutions may include:
-                                        • Feature selection
-                                        • Principal Component Analysis (PCA)
-                                        • Combining related features
+                            <div class="collapsible-container" onclick="toggleSection('multicollinearity')">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-md font-medium text-gray-700">Multicollinearity Detection</h4>
+                                    <div class="flex items-center">
+                                        <button class="info-button mr-2" aria-label="Multicollinearity detection info" onclick="event.stopPropagation()">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            <div class="tooltip">
+                                                Multicollinearity issues arise when features are highly correlated:
+                                                • Correlation > 0.8: Strong relationship
+                                                • Can cause problems in ML models:
+                                                  - Unstable coefficient estimates
+                                                  - Reduced model interpretability
+                                                  - Overfitting risks
+                                                
+                                                Solutions may include:
+                                                • Feature selection
+                                                • Principal Component Analysis (PCA)
+                                                • Combining related features
+                                            </div>
+                                        </button>
+                                        <i id="multicollinearity-arrow" class="fas fa-chevron-up"></i>
                                     </div>
-                                </button>
+                                </div>
                             </div>
-                            <div id="multicollinearity-results" class="bg-white p-4 rounded shadow"></div>
-                            <div id="multicollinearity-recommendation" class="recommendation hidden"></div>
+                            <div id="multicollinearity-content" class="collapsible-content expanded">
+                                <div id="multicollinearity-results" class="bg-white p-4 rounded shadow"></div>
+                                <div id="multicollinearity-recommendation" class="recommendation hidden"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Correlation Analysis Tab -->
                 <div id="correlation-tab" class="tab-content hidden">
-                    <div id="correlation-data"></div>
-                    <div id="correlation-matrix" class="mt-4">
-                        <img id="correlation-matrix-image" class="hidden max-w-full h-auto rounded shadow-lg" alt="Correlation Matrix">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="collapsible-container" onclick="toggleSection('correlation-analysis')">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <h4 class="text-base font-medium text-gray-900">Correlation Analysis</h4>
+                                    <span class="info-button" onclick="event.stopPropagation()">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span class="tooltip">View relationships between different columns in your dataset.</span>
+                                    </span>
+                                </div>
+                                <i id="correlation-analysis-arrow" class="fas fa-chevron-up"></i>
+                            </div>
+                        </div>
+                        <div id="correlation-analysis-content" class="collapsible-content expanded">
+                            <div id="correlation-data"></div>
+                        </div>
                     </div>
                 </div>
-                
+
+                <!-- Chat Assistant Tab -->
+                <div id="chat-tab" class="tab-content hidden">
+                    <div class="flex flex-col h-[500px]">
+                        <!-- Chat Messages -->
+                        <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
+                            <!-- Messages will be inserted here -->
+                        </div>
+                        
+                        <!-- Chat Input -->
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="chat-input" class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ask about your data analysis...">
+                            <button id="send-chat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Data Tab -->
+                <div id="export-tab" class="tab-content hidden">
+                    <div id="export-section" class="bg-white shadow rounded-lg">
+                        <div class="p-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Format</label>
+                                        <select id="export-format" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                            <option value="csv">CSV</option>
+                                            <option value="json">JSON</option>
+                                            <option value="parquet">Parquet</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Compression</label>
+                                        <select id="export-compression" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                            <option value="">None</option>
+                                            <option value="gzip">GZIP</option>
+                                            <option value="bz2">BZ2</option>
+                                            <option value="zip">ZIP</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button id="export-action-btn" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>
+                                            Export Data
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ERD Tab (if needed) -->
                 <div id="erd-tab" class="tab-content hidden">
                     <div id="erd-results">
                         <div class="mb-4 flex items-center justify-between">
@@ -351,753 +849,289 @@
                         <div id="erd-error" class="hidden text-red-600"></div>
                     </div>
                 </div>
-                
-                <div id="chat-tab" class="tab-content hidden">
-                    <div class="flex flex-col h-[500px]">
-                        <!-- Chat Messages -->
-                        <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
-                            <!-- Messages will be inserted here -->
-                        </div>
-                        
-                        <!-- Chat Input -->
-                        <div class="flex items-center space-x-2">
-                            <input type="text" id="chat-input" class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ask about your data analysis...">
-                            <button id="send-chat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                Send
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Export Section -->
-    <div id="export-section" class="bg-white shadow rounded-lg hidden">
-        <div class="p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
-            <div class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Format</label>
-                        <select id="export-format" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                            <option value="csv">CSV</option>
-                            <option value="json">JSON</option>
-                            <option value="parquet">Parquet</option>
-                        </select>
+        <!-- Add error display section after progress bar -->
+        <div id="error-section" class="mt-4 hidden">
+            <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-400"></i>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Compression</label>
-                        <select id="export-compression" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                            <option value="">None</option>
-                            <option value="gzip">GZIP</option>
-                            <option value="bz2">BZ2</option>
-                            <option value="zip">ZIP</option>
-                        </select>
-                    </div>
-                    <div class="flex items-end">
-                        <button id="export-btn" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>
-                            Export Data
-                        </button>
+                    <div class="ml-3">
+                        <p id="error-message" class="text-sm text-red-700"></p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Initialize variables
-    let socket;
-    let currentFilename;
-    let currentTaskId;
-    let tasks = {};
+<script type="module" src="{{ url_for('static', filename='js/file-management.js') }}"></script>
+<script type="module">
+    import { socket } from '/static/js/socket.js';
+    import { handleDrop, handleFileSelect, preventDefaults, highlight, unhighlight } from '/static/js/upload.js';
+    import { showResults, showTab, updateProgress, toggleSection, initializeCollapsibleSections } from '/static/js/validation.js';
+    import { showToast } from '/static/js/utils.js';
+    import { initializeMultiFileAnalysis } from '/static/js/correlation.js';
+    import { getCurrentTaskId } from '/static/js/state.js';
+    import { initializeTabs } from '/static/js/tabs.js';
+    import { renderCorrelationMatrix } from '/static/js/correlation.js';
+    import { initChat } from '/static/js/chat.js';
 
-    // Initialize Socket.IO connection
-    function initSocket() {
-        console.log('Initializing Socket.IO connection...');
-        socket = io({
-            reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: 5,
-            transports: ['websocket', 'polling']  // Try WebSocket first, fallback to polling
-        });
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            // Socket is already initialized in socket.js
+            if (!socket) {
+                throw new Error('Socket.IO connection not available');
+            }
 
-        socket.on('connect', () => {
-            console.log('Connected to server with ID:', socket.id);
-            console.log('Transport type:', socket.io.engine.transport.name);
-        });
+            // Initialize collapsible sections
+            initializeCollapsibleSections();
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
+            // Make toggleSection available globally
+            window.toggleSection = toggleSection;
 
-        socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
-            console.error('Connection error details:', {
-                readyState: socket.io.engine.readyState,
-                transport: socket.io.engine.transport
-            });
-            showToast('Connection error: ' + error, 'error');
-        });
-
-        socket.on('reconnect', (attemptNumber) => {
-            console.log('Reconnected after ' + attemptNumber + ' attempts');
-            showToast('Reconnected to server', 'success');
-        });
-
-        socket.on('reconnect_failed', () => {
-            console.error('Failed to reconnect');
-            showToast('Failed to reconnect to server', 'error');
-        });
-
-        // WebSocket Event Handlers
-        socket.on('progress', data => {
-            console.log('Received progress event:', data);
+            // Socket is already initialized in socket.js
+            if (!socket) {
+                throw new Error('Socket.IO connection not available');
+            }
+            console.log('Socket.IO connection available');
             
-            // Check if this is the initial progress event for a new task
-            if (!currentTaskId && data.task_id) {
-                console.log('Setting current task ID:', data.task_id);
-                currentTaskId = data.task_id;
+            // Initialize multi-file analysis
+            initializeMultiFileAnalysis();
+            
+            // Initialize upload area
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-upload');
+            const chooseFilesButton = document.getElementById('choose-files-button');
+            
+            if (!uploadArea || !fileInput || !chooseFilesButton) {
+                throw new Error('Required DOM elements not found');
             }
             
-            // Check if this progress event is for our current task
-            if (data.task_id === currentTaskId) {
-                console.log('Updating progress for task:', currentTaskId);
-                
-                // Always update progress and status
-                updateProgress(data.progress || 0, data.status || 'Running');
-                
-                // Update the progress status immediately
-                const progressStatus = document.getElementById('progress-status');
-                if (progressStatus) {
-                    progressStatus.textContent = data.status || 'Running';
+            // Remove any existing event listeners
+            uploadArea.replaceWith(uploadArea.cloneNode(true));
+            fileInput.replaceWith(fileInput.cloneNode(true));
+            chooseFilesButton.replaceWith(chooseFilesButton.cloneNode(true));
+            
+            // Get fresh references after replacing
+            const newUploadArea = document.getElementById('upload-area');
+            const newFileInput = document.getElementById('file-upload');
+            const newChooseFilesButton = document.getElementById('choose-files-button');
+            
+            // Single event listener for file input change
+            newFileInput.addEventListener('change', (e) => {
+                if (!newFileInput.disabled) {
+                    handleFileSelect(e);
                 }
-
-                if (data.error) {
-                    console.error('Task error:', data.error);
-                    showToast(data.error, 'error');
+            }, { once: true });  // Use once: true to ensure it only fires once
+            
+            // Single click handler for choose files button
+            newChooseFilesButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!newFileInput.disabled) {
+                    newFileInput.click();
+                }
+            });
+            
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                newUploadArea.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            
+            // Handle file drop
+            newUploadArea.addEventListener('drop', (e) => {
+                if (!newFileInput.disabled) {
+                    handleDrop(e);
+                }
+            }, { once: true });  // Use once: true to ensure it only fires once
+            
+            console.log('File upload handlers initialized');
+            
+            // Initialize Tabs
+            initializeTabs(); // Initialize the tab management
+            
+            // Process button click handler
+            document.getElementById('process-btn')?.addEventListener('click', function() {
+                const taskId = getCurrentTaskId();
+                if (!taskId) {
+                    showToast('No file selected for processing', 'error');
                     return;
                 }
                 
-                // Check if we have results
-                if (data.results && Object.keys(data.results).length > 0) {
-                    console.log('Task has results:', data.results);
-                    showResults(data.results);
-                    
-                    // If task is complete, update UI accordingly
-                    if (data.status === 'Complete') {
-                        document.getElementById('export-section').classList.remove('hidden');
-                        showToast('Processing complete', 'success');
-                        
-                        // Update progress bar and status styles
-                        document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
-                        document.getElementById('progress-status').classList.add('text-green-600', 'bg-green-200');
-                        document.getElementById('progress-bar').classList.remove('bg-indigo-600');
-                        document.getElementById('progress-bar').classList.add('bg-green-600');
-                    }
-                }
-            } else {
-                console.log('Ignoring progress event for different task. Current:', currentTaskId, 'Received:', data.task_id);
-            }
-        });
-        
-        socket.on('complete', data => {
-            console.log('Received complete event:', data);
-            if (data.task_id === currentTaskId) {
-                updateProgress(100, 'Complete');
-                tasks[data.task_id] = data;
-                showResults(data.results);
-                document.getElementById('export-section').classList.remove('hidden');
-                showToast('Processing complete', 'success');
-                document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
-                document.getElementById('progress-status').classList.add('text-green-600', 'bg-green-200');
-            }
-        });
-        
-        socket.on('error', data => {
-            console.log('Received error event:', data);
-            if (data.task_id === currentTaskId) {
-                updateProgress(100, 'Failed');  // Set to 100% when failed
-                showToast(data.error, 'error');
-                document.getElementById('progress-status').classList.remove('text-indigo-600', 'bg-indigo-200');
-                document.getElementById('progress-status').classList.add('text-red-600', 'bg-red-200');
-                document.getElementById('progress-bar').classList.remove('bg-indigo-600');
-                document.getElementById('progress-bar').classList.add('bg-red-600');
-            }
-        });
-    }
-
-    // Initialize socket connection
-    initSocket();
-
-    // Initialize variables
-    const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('file-input');
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
-    });
-
-    function highlight(e) {
-        uploadArea.classList.add('border-indigo-500');
-    }
-
-    function unhighlight(e) {
-        uploadArea.classList.remove('border-indigo-500');
-    }
-
-    uploadArea.addEventListener('drop', handleDrop, false);
-    fileInput.addEventListener('change', handleFileSelect, false);
-
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const file = dt.files[0];
-        handleFile(file);
-    }
-
-    function handleFileSelect(e) {
-        const file = e.target.files[0];
-        handleFile(file);
-    }
-
-    function handleFile(file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        currentFilename = file.name;
-
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showPreview(data);
-                showToast('File uploaded successfully', 'success');
-            } else {
-                showToast(data.error, 'error');
-            }
-        })
-        .catch(error => {
-            showToast('Upload failed: ' + error, 'error');
-        });
-    }
-
-    function showPreview(data) {
-        // Show preview section
-        document.getElementById('preview-section').classList.remove('hidden');
-
-        // Create table headers
-        const thead = document.querySelector('#preview-table thead');
-        thead.innerHTML = `
-            <tr>
-                ${data.columns.map(col => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col}</th>`).join('')}
-            </tr>
-        `;
-
-        // Create table rows
-        const tbody = document.querySelector('#preview-table tbody');
-        tbody.innerHTML = data.preview.map(row => `
-            <tr>
-                ${data.columns.map(col => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row[col]}</td>`).join('')}
-            </tr>
-        `).join('');
-    }
-
-    // Process Data
-    document.getElementById('process-btn').addEventListener('click', () => {
-        const config = {
-            generate_erd: true,
-            filename: currentFilename
-        };
-
-        // Reset current task ID
-        currentTaskId = null;
-
-        // Show progress section and hide results
-        document.getElementById('progress-section').classList.remove('hidden');
-        document.getElementById('results-section').classList.add('hidden');
-        document.getElementById('export-section').classList.add('hidden');
-
-        // Reset progress indicators
-        updateProgress(0, 'Starting');
-        
-        // Reset progress bar styles
-        document.getElementById('progress-status').classList.remove('text-green-600', 'bg-green-200', 'text-red-600', 'bg-red-200');
-        document.getElementById('progress-status').classList.add('text-indigo-600', 'bg-indigo-200');
-        document.getElementById('progress-bar').classList.remove('bg-green-600', 'bg-red-600');
-        document.getElementById('progress-bar').classList.add('bg-indigo-600');
-        
-        // Send process request
-        fetch('/process', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(config)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentTaskId = data.task_id;
-                console.log('Started new task with ID:', currentTaskId);
-            } else {
-                showToast(data.error || 'Failed to start processing', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Failed to start processing: ' + error, 'error');
-        });
-    });
-
-    function updateProgress(progress, status) {
-        document.getElementById('progress-bar').style.width = `${progress}%`;
-        document.getElementById('progress-percentage').textContent = `${progress}%`;
-        document.getElementById('progress-status').textContent = status;
-
-        // Reset colors to default if not error or complete
-        if (status !== 'Failed' && status !== 'Complete') {
-            document.getElementById('progress-status').classList.remove('text-red-600', 'bg-red-200', 'text-green-600', 'bg-green-200');
-            document.getElementById('progress-status').classList.add('text-indigo-600', 'bg-indigo-200');
-            document.getElementById('progress-bar').classList.remove('bg-red-600', 'bg-green-600');
-            document.getElementById('progress-bar').classList.add('bg-indigo-600');
-        }
-    }
-
-    function showResults(results) {
-        console.log('Showing results:', results);
-        document.getElementById('results-section').classList.remove('hidden');
-        document.getElementById('export-section').classList.remove('hidden');
-
-        // Display validation results
-        const validationResults = results.validation;
-        if (validationResults) {
-            // Basic Validation Results
-            const basicValidation = validationResults.basic_validation;
-            const basicHtml = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${Object.entries(basicValidation)
-                        .map(([key, value]) => `
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h4 class="font-medium text-gray-700 mb-2">${key.replace(/_/g, ' ').toUpperCase()}</h4>
-                                <pre class="whitespace-pre-wrap font-mono text-sm">${JSON.stringify(value, null, 2)}</pre>
-                            </div>
-                        `)
-                        .join('')}
-                </div>`;
-            document.getElementById('basic-validation-results').innerHTML = basicHtml;
-
-            // Display Recommendations if any validation issues are found
-            const recommendations = generateRecommendations(basicValidation);
-            if (recommendations.length > 0) {
-                const recommendationDiv = document.getElementById('basic-validation-recommendation');
-                recommendationDiv.innerHTML = `
-                    <h4 class="text-md font-semibold text-gray-700 mb-2">Recommendations:</h4>
-                    <ul class="list-disc pl-5 space-y-1 text-sm text-gray-600">
-                        ${recommendations.map(rec => `<li>${rec}</li>`).join('')}
-                    </ul>
-                `;
-                recommendationDiv.classList.remove('hidden');
-            } else {
-                document.getElementById('basic-validation-recommendation').classList.add('hidden');
-            }
-
-            // Advanced Validation Results
-            const advancedValidation = validationResults.advanced_validation;
+                // Show processing progress section
+                document.getElementById('processing-progress-section').classList.remove('hidden');
+                
+                // Reset progress bar
+                updateProgress('processing-progress-bar', 'processing-progress-percentage', 0);
+                
+                // Emit processing event via socket
+                socket.emit('process_data', { task_id: taskId });
+            });
             
-            // Quality Scores
-            const qualityScores = advancedValidation.quality_scores;
-            document.getElementById('overall-quality-score').textContent = qualityScores.overall_score;
-            document.getElementById('overall-quality-grade').textContent = `Grade ${qualityScores.overall_grade}`;
+            // Add socket event listener for processing started
+            socket.on('processing_started', (data) => {
+                console.log('Processing started:', data);
+                document.getElementById('processing-progress-section').classList.remove('hidden');
+                document.getElementById('error-section').classList.add('hidden');
+            });
             
-            let columnScoresHtml = '<div class="space-y-2">';
-            Object.entries(qualityScores.column_scores).forEach(([col, data]) => {
-                columnScoresHtml += `
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium">${col}</span>
-                        <span class="text-sm">
-                            ${data.score} (Grade ${data.grade})
-                        </span>
-                    </div>
-                `;
-            });
-            columnScoresHtml += '</div>';
-            document.getElementById('column-quality-scores').innerHTML = columnScoresHtml;
-
-            // Outliers
-            let outliersHtml = '<div class="space-y-2">';
-            Object.entries(advancedValidation.outliers).forEach(([col, data]) => {
-                outliersHtml += `
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium">${col}</span>
-                        <span class="text-sm">
-                            Z-score: ${data.z_score_outliers}, 
-                            IQR: ${data.iqr_outliers}
-                        </span>
-                    </div>
-                `;
-            });
-            outliersHtml += '</div>';
-            document.getElementById('outlier-results').innerHTML = outliersHtml;
-
-            // Distribution Analysis
-            let distributionHtml = '<div class="space-y-4">';
-            Object.entries(advancedValidation.distribution_analysis).forEach(([col, stats]) => {
-                distributionHtml += `
-                    <div class="border-b pb-2">
-                        <h5 class="font-medium mb-2">${col}</h5>
-                        <div class="grid grid-cols-2 gap-2 text-sm">
-                            <div>Mean: ${stats.mean.toFixed(2)}</div>
-                            <div>Median: ${stats.median.toFixed(2)}</div>
-                            <div>Std: ${stats.std.toFixed(2)}</div>
-                            <div>Skewness: ${stats.skewness.toFixed(2)}</div>
-                            <div>Kurtosis: ${stats.kurtosis.toFixed(2)}</div>
-                        </div>
-                        ${renderNormalityTests(stats.normality_tests)}
-                    </div>
-                `;
-            });
-            distributionHtml += '</div>';
-            document.getElementById('distribution-results').innerHTML = distributionHtml;
-
-            // Multicollinearity
-            let multicollinearityHtml = '<div class="space-y-2">';
-            const multicollinearity = advancedValidation.multicollinearity;
-            if (multicollinearity.high_correlations.length > 0) {
-                multicollinearityHtml += `
-                    <div class="text-sm mb-2">
-                        Features with correlation > ${multicollinearity.threshold}:
-                    </div>
-                    ${multicollinearity.high_correlations.map(corr => `
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm">
-                                ${corr.feature1} ↔ ${corr.feature2}
-                            </span>
-                            <span class="text-sm font-medium">
-                                ${corr.correlation.toFixed(3)}
-                            </span>
-                        </div>
-                    `).join('')}
-                `;
-            } else {
-                multicollinearityHtml += `
-                    <div class="text-sm text-gray-500">
-                        No high correlations found
-                    </div>
-                `;
-            }
-            multicollinearityHtml += '</div>';
-            document.getElementById('multicollinearity-results').innerHTML = multicollinearityHtml;
-        }
-
-        // Display correlation results
-        if (results.correlations) {
-            console.log('Results:', results);  
-            // Prepare top correlations HTML
-            let topCorrelationsHtml = '';
-            if (results.top_correlations && results.top_correlations.length > 0) {
-                console.log('Top correlations:', results.top_correlations);  
-                topCorrelationsHtml = results.top_correlations
-                    .map(corr => `
-                        <li class="text-sm">
-                            <strong>${corr.column1}</strong> and <strong>${corr.column2}</strong>: 
-                            ${(corr.correlation >= 0 ? 'Positive' : 'Negative')} correlation of 
-                            <span class="font-mono">${corr.correlation.toFixed(3)}</span>
-                        </li>
-                    `)
-                    .join('');
-            } else {
-                console.log('No top correlations found');  
-            }
-
-            const correlationHtml = `
-                <div class="mb-4">
-                    <button class="flex justify-between w-full text-lg font-semibold mb-2 bg-gray-100 p-3 rounded hover:bg-gray-200 focus:outline-none" 
-                            onclick="toggleSection('correlation-section')">
-                        <span>CORRELATIONS</span>
-                        <span class="transform transition-transform duration-200" id="correlation-section-arrow">▼</span>
-                    </button>
-                    <div id="correlation-section" class="transition-all duration-200 overflow-hidden space-y-4">
-                        <!-- Top Correlations Text Section -->
-                        <div id="top-correlations" class="bg-white p-4 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold mb-2">Top 5 Correlations:</h3>
-                            <ul class="list-disc pl-5 space-y-1">
-                                ${topCorrelationsHtml}
-                            </ul>
-                        </div>
-
-                        <!-- Correlation Matrix Image Section -->
-                        <div id="correlation-matrix-container" class="bg-white p-4 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold mb-2">Correlation Matrix:</h3>
-                            <img id="correlation-matrix-image" class="hidden max-w-full h-auto" alt="Correlation Matrix">
-                        </div>
-
-                        <!-- Detailed Correlations Section -->
-                        <div class="bg-white p-4 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold mb-2">Detailed Correlations:</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                ${Object.entries(results.correlations).map(([feature, correlations]) => `
-                                    <div class="bg-gray-50 p-3 rounded">
-                                        <h4 class="font-semibold mb-2">${feature}:</h4>
-                                        <div class="space-y-1 text-sm">
-                                            ${Object.entries(correlations)
-                                                .map(([col, val]) => `
-                                                    <div class="flex justify-between">
-                                                        <span>${col}:</span>
-                                                        <span class="font-mono ${Math.abs(val) > 0.5 ? 'text-indigo-600 font-semibold' : ''}">${val.toFixed(3)}</span>
-                                                    </div>
-                                                `)
-                                                .join('')}
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('correlation-data').innerHTML = correlationHtml;
-
-            if (results.correlation_matrix_path) {
-                const matrixImg = document.getElementById('correlation-matrix-image');
-                matrixImg.src = results.correlation_matrix_path;
-                matrixImg.classList.remove('hidden');
-            }
-        }
-
-        // Display ERD if available
-        if (results.erd_path) {
-            const erdImg = document.getElementById('erd-image');
-            erdImg.src = results.erd_path;
-            erdImg.classList.remove('hidden');
-        } else if (results.erd_error) {
-            document.getElementById('erd-error').textContent = results.erd_error;
-            document.getElementById('erd-error').classList.remove('hidden');
-        }
-
-        // Enable export section
-        document.getElementById('export-btn').disabled = false;
-    }
-
-    // Add toggle section functionality
-    function toggleSection(sectionId) {
-        const section = document.getElementById(sectionId);
-        const arrow = document.getElementById(sectionId + '-arrow');
-        
-        if (section.style.maxHeight) {
-            section.style.maxHeight = null;
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
-        } else {
-            section.style.maxHeight = section.scrollHeight + 'px';
-            if (arrow) arrow.style.transform = 'rotate(180deg)';
-        }
-    }
-
-    // Add tab functionality
-    function showTab(tabId) {
-        const tabs = document.querySelectorAll('.tab-button');
-        tabs.forEach(tab => tab.classList.remove('active'));
-        const activeTab = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
-        if (activeTab) activeTab.classList.add('active');
-
-        const tabContents = document.querySelectorAll('.tab-content');
-        tabContents.forEach(content => content.classList.add('hidden'));
-        const activeContent = document.getElementById(`${tabId}-tab`);
-        if (activeContent) activeContent.classList.remove('hidden');
-    }
-
-    // Export Data
-    document.getElementById('export-btn').addEventListener('click', () => {
-        const config = {
-            task_id: currentTaskId,
-            format: document.getElementById('export-format').value,
-            compression: document.getElementById('export-compression').value || null
-        };
-
-        fetch('/export', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(config)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.download_url) {
-                // Create a temporary link and click it to trigger the download
-                const link = document.createElement('a');
-                link.href = data.download_url;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('Export successful', 'success');
-            } else {
-                showToast(data.error || 'Export failed', 'error');
-            }
-        })
-        .catch(error => {
-            showToast('Export failed: ' + error, 'error');
-        });
-    });
-
-    // ERD Image Rotation and Upload
-    let currentRotation = 0;
-
-    function rotateERD(degrees) {
-        currentRotation = (currentRotation + degrees) % 360;
-        const erdImage = document.getElementById('erd-image');
-        erdImage.style.transform = `rotate(${currentRotation}deg)`;
-    }
-
-    // Handle custom ERD upload
-    document.getElementById('custom-erd-input').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            if (!file.type.startsWith('image/')) {
-                alert('Please upload an image file');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const erdImage = document.getElementById('erd-image');
-                erdImage.src = e.target.result;
-                erdImage.classList.remove('hidden');
-                // Reset rotation when new image is uploaded
-                currentRotation = 0;
-                erdImage.style.transform = '';
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    // Chat functionality
-    const chatInput = document.getElementById('chat-input');
-    const sendChatButton = document.getElementById('send-chat');
-    const chatMessages = document.getElementById('chat-messages');
-    
-    function addChatMessage(message, isUser = false) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `mb-4 ${isUser ? 'text-right' : ''}`;
-        
-        const bubble = document.createElement('div');
-        bubble.className = `inline-block rounded-lg px-4 py-2 ${isUser ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200'}`;
-        bubble.textContent = message;
-        
-        messageDiv.appendChild(bubble);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-    
-    async function handleChatSubmit() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-        
-        if (!currentTaskId) {
-            addChatMessage('Please process some data first before starting a chat.', false);
-            return;
-        }
-        
-        // Add user message
-        addChatMessage(message, true);
-        chatInput.value = '';
-        
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: message,
-                    task_id: currentTaskId
+            // Export button handler
+            document.getElementById('export-action-btn')?.addEventListener('click', () => {
+                const config = {
+                    task_id: getCurrentTaskId(),
+                    format: document.getElementById('export-format').value,
+                    compression: document.getElementById('export-compression').value
+                };
+                
+                fetch('/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
                 })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.download_url;
+                    } else {
+                        showToast(data.error || 'Export failed', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('Network error', 'error');
+                });
             });
             
-            if (!response.ok) throw new Error('Chat request failed');
+            // Custom ERD upload handler
+            document.getElementById('custom-erd-input')?.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    if (!file.type.startsWith('image/')) {
+                        showToast('Please upload an image file', 'error');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const erdImage = document.getElementById('erd-image');
+                        erdImage.src = e.target.result;
+                        erdImage.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Send chat message handler (if Chat Tab is used)
+            document.getElementById('send-chat')?.addEventListener('click', () => {
+                const message = document.getElementById('chat-input').value.trim();
+                if (message) {
+                    // Emit chat message via socket or handle accordingly
+                    socket.emit('chat_message', { message: message });
+                    document.getElementById('chat-input').value = '';
+                }
+            });
             
-            const data = await response.json();
-            addChatMessage(data.response, false);
+            // Process chat messages received via socket
+            socket.on('chat_response', (data) => {
+                const chatMessages = document.getElementById('chat-messages');
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('mb-2');
+                messageElement.innerHTML = `<span class="font-medium text-gray-900">Assistant:</span> ${data.response}`;
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+
+            initChat();  // Initialize chat functionality
+
+            // Collapse/Expand buttons
+            const collapseBtns = document.querySelectorAll('.collapse-btn');
+            collapseBtns.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const collapsibleContent = btn.nextElementSibling;
+                    if (collapsibleContent.classList.contains('expanded')) {
+                        collapsibleContent.classList.remove('expanded');
+                        btn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+                    } else {
+                        collapsibleContent.classList.add('expanded');
+                        btn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+                    }
+                });
+            });
+
         } catch (error) {
-            addChatMessage('Sorry, there was an error processing your message.', false);
-            console.error('Chat error:', error);
+            console.error('Error initializing page:', error);
+            showToast('An error occurred while initializing the page.', 'error');
         }
-    }
-    
-    sendChatButton.addEventListener('click', handleChatSubmit);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleChatSubmit();
     });
 
-    // Helper function to render normality tests
-    function renderNormalityTests(normalityTests) {
-        if (typeof normalityTests === 'string') {
-            return `<div class="text-sm text-gray-500 mt-2">${normalityTests}</div>`;
+    // Socket event listeners
+    socket.on('upload_progress', (data) => {
+        console.log('Upload progress:', data);
+        if (data.progress !== undefined) {
+            updateProgress(data.progress, data.status || `${data.progress}%`);
         }
+    });
 
-        return `
-            <div class="mt-2">
-                <div class="text-sm font-medium">Normality Tests:</div>
-                <div class="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                        Shapiro-Wilk:
-                        <span class="${normalityTests.shapiro_wilk.is_normal ? 'text-green-600' : 'text-red-600'}">
-                            ${normalityTests.shapiro_wilk.is_normal ? 'Normal' : 'Non-normal'}
-                        </span>
-                        (p=${normalityTests.shapiro_wilk.p_value.toFixed(4)})
-                    </div>
-                    <div>
-                        Anderson-Darling:
-                        stat=${normalityTests.anderson_darling.statistic.toFixed(2)}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // Toast Notification Function
-    function showToast(message, type) {
-        // Implement your toast notification logic here
-        // Example using simple alert (replace with a better UI in production)
-        alert(`[${type.toUpperCase()}]: ${message}`);
-    }
-
-    // Helper function to generate recommendations based on basic validation
-    function generateRecommendations(basicValidation) {
-        const recommendations = [];
-
-        if (basicValidation.missing_values && basicValidation.missing_values > 0) {
-            recommendations.push(`There are ${basicValidation.missing_values} missing values. Consider imputing missing data or removing incomplete records.`);
+    socket.on('processing_progress', (data) => {
+        console.log('Processing progress:', data);
+        if (data.status === 'Complete') {
+            // Show the results section
+            const resultsSection = document.getElementById('results-section');
+            if (resultsSection) {
+                resultsSection.classList.remove('hidden');
+            }
+            
+            // Hide the processing progress
+            const processingProgress = document.getElementById('processing-progress-section');
+            if (processingProgress) {
+                processingProgress.classList.add('hidden');
+            }
+            
+            // Show the results if they exist
+            if (data.results) {
+                showResults(data.results);
+            }
+            
+            showToast('Processing complete!', 'success');
+        } else if (data.status === 'Failed') {
+            showToast(data.error || 'Processing failed', 'error');
+            
+            // Hide the processing progress
+            const processingProgress = document.getElementById('processing-progress-section');
+            if (processingProgress) {
+                processingProgress.classList.add('hidden');
+            }
+            
+            // Show error section
+            const errorSection = document.getElementById('error-section');
+            const errorMessage = document.getElementById('error-message');
+            if (errorSection && errorMessage) {
+                errorMessage.textContent = data.error || 'An error occurred during processing';
+                errorSection.classList.remove('hidden');
+            }
+        } else {
+            // Update progress for ongoing processing
+            const progressBar = document.getElementById('processing-progress-bar');
+            const progressPercentage = document.getElementById('processing-progress-percentage');
+            if (progressBar && progressPercentage && data.progress !== undefined) {
+                progressBar.style.width = `${data.progress}%`;
+                progressPercentage.textContent = `${data.progress}%`;
+            }
         }
+    });
 
-        if (basicValidation.negative_values && basicValidation.negative_values.length > 0) {
-            recommendations.push(`Found negative values in fields: ${basicValidation.negative_values.join(', ')}. Verify if negative values are expected.`);
-        }
-
-        if (basicValidation.duplicates && basicValidation.duplicates > 0) {
-            recommendations.push(`Detected ${basicValidation.duplicates} duplicate rows. Consider removing duplicates to ensure data integrity.`);
-        }
-
-        return recommendations;
-    }
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        showToast(error.message || 'An error occurred', 'error');
+    });
 </script>
 {% endblock %}

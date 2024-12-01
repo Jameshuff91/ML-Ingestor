@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np
 from werkzeug.utils import secure_filename
 from src.logger import setup_logger
 
@@ -9,25 +10,49 @@ class DataIngestion:
     def __init__(self):
         self.logger = logger
 
-    def load_file(self, file):
-        """Load data from an uploaded file."""
-        filename = secure_filename(file.filename)
-        self.logger.info(f"Loading file: {filename}")
-        
+    def load_file(self, file_path: str) -> pd.DataFrame:
+        """Load data from a file into a pandas DataFrame."""
         try:
-            if filename.endswith('.csv'):
-                df = pd.read_csv(file.stream)
-            elif filename.endswith(('.xls', '.xlsx')):
-                df = pd.read_excel(file.stream)
+            # Get file extension
+            _, ext = os.path.splitext(file_path)
+            ext = ext.lower()
+
+            # Load based on file type
+            if ext == '.csv':
+                df = pd.read_csv(file_path, compression=None)
+            elif ext in ['.xlsx', '.xls']:
+                df = pd.read_excel(file_path)
             else:
-                raise ValueError(f"Unsupported file type: {filename}")
+                raise ValueError(f"Unsupported file type: {ext}")
+
+            # Basic cleanup
+            df = self._clean_data(df)
             
-            self.logger.info(f"Successfully loaded file with shape: {df.shape}")
+            self.logger.info(f"Successfully loaded file: {file_path}")
+            return df
+
+        except Exception as e:
+            self.logger.error(f"Error loading file {file_path}: {str(e)}")
+            raise ValueError(f"Error loading file: {str(e)}")
+
+    def _clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean the loaded data."""
+        try:
+            # Remove completely empty rows and columns
+            df = df.dropna(how='all').dropna(axis=1, how='all')
+            
+            # Convert column names to string and clean them
+            df.columns = df.columns.astype(str)
+            df.columns = [col.strip() for col in df.columns]
+            
+            # Replace infinite values with NaN
+            df = df.replace([np.inf, -np.inf], np.nan)
+            
             return df
             
         except Exception as e:
-            self.logger.error(f"Error loading file {filename}: {str(e)}")
-            raise
+            self.logger.error(f"Error cleaning data: {str(e)}")
+            raise ValueError(f"Error cleaning data: {str(e)}")
 
     def save_processed_data(self, df, output_path):
         """Save processed data to a file."""

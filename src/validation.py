@@ -17,21 +17,24 @@ class DataValidation:
 
     def validate_data(self, df):
         """Perform comprehensive data validation."""
-        results = {
-            'basic_validation': {
-                'missing_values': self.check_missing_values(df),
-                'negative_values': self.check_negative_values(df),
-                'duplicates': self.check_duplicates(df),
-                'data_types': self.get_data_types(df)
-            },
-            'advanced_validation': {
-                'outliers': self.detect_outliers(df),
-                'quality_scores': self.calculate_quality_scores(df),
-                'distribution_analysis': self.analyze_distributions(df),
-                'multicollinearity': self.detect_multicollinearity(df)
-            }
+        basic_validation = {
+            'missing_values': self.check_missing_values(df),
+            'negative_values': self.check_negative_values(df),
+            'duplicates': self.check_duplicates(df),
+            'data_types': self.get_data_types(df)
         }
-        return results
+
+        advanced_validation = {
+            'outliers': self.detect_outliers(df),
+            'quality_scores': self.calculate_quality_scores(df),
+            'distribution_analysis': self.analyze_distributions(df),
+            'multicollinearity': self.detect_multicollinearity(df)
+        }
+
+        return {
+            'basic_validation': basic_validation,
+            'advanced_validation': advanced_validation
+        }
 
     def check_missing_values(self, df):
         """Check for missing values in the dataset."""
@@ -201,25 +204,31 @@ class DataValidation:
             
             # Normality tests
             try:
-                shapiro_stat, shapiro_p = shapiro(data)
-                anderson_result = anderson(data)
-                
-                stats_dict.update({
-                    'normality_tests': {
-                        'shapiro_wilk': {
-                            'statistic': float(shapiro_stat),
-                            'p_value': float(shapiro_p),
-                            'is_normal': int(shapiro_p > 0.05)  # Convert boolean to int
-                        },
-                        'anderson_darling': {
-                            'statistic': float(anderson_result.statistic),
-                            'critical_values': [float(x) for x in anderson_result.critical_values.tolist()],  # Ensure all values are float
-                            'significance_level': [float(x) for x in anderson_result.significance_level.tolist()]  # Ensure all values are float
+                # Check for zero variance
+                if data.var() == 0:
+                    stats_dict['normality_tests'] = 'Skipping normality tests - zero variance in data'
+                    self.logger.warning(f"Column {col} has zero variance, skipping normality tests")
+                else:
+                    shapiro_stat, shapiro_p = shapiro(data)
+                    anderson_result = anderson(data)
+                    
+                    stats_dict.update({
+                        'normality_tests': {
+                            'shapiro_wilk': {
+                                'statistic': float(shapiro_stat),
+                                'p_value': float(shapiro_p),
+                                'is_normal': int(shapiro_p > 0.05)  # Convert boolean to int
+                            },
+                            'anderson_darling': {
+                                'statistic': float(anderson_result.statistic),
+                                'critical_values': [float(x) for x in anderson_result.critical_values.tolist()],  # Ensure all values are float
+                                'significance_level': [float(x) for x in anderson_result.significance_level.tolist()]  # Ensure all values are float
+                            }
                         }
-                    }
-                })
-            except:
-                stats_dict['normality_tests'] = 'Could not perform normality tests'
+                    })
+            except Exception as e:
+                self.logger.error(f"Error in normality tests for column {col}: {str(e)}")
+                stats_dict['normality_tests'] = f'Could not perform normality tests: {str(e)}'
             
             distributions[col] = stats_dict
         

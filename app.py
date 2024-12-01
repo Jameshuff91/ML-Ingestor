@@ -1,47 +1,118 @@
 import os
-from flask import Flask, request, jsonify, send_file, render_template
-from flask_socketio import SocketIO, emit
-import pandas as pd
-import yaml
-import numpy as np
-from typing import Dict, Any
-from werkzeug.utils import secure_filename
-import threading
 import uuid
-from threading import Thread
-
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit, join_room
+from werkzeug.utils import secure_filename
+from typing import Dict, Any, List
+import pandas as pd
+import numpy as np
 from src.ingestion import DataIngestion
 from src.validation import DataValidation
 from src.erd_generator import ERDGenerator
 from src.correlation import CorrelationAnalyzer
+from src.multi_correlation import MultiFileCorrelationAnalyzer
+from src.data_processor import DataProcessor
 from src.export import DataExporter
-from src.config import ConfigManager
 from src.logger import setup_logger
+from src.config import ConfigManager
+from threading import Thread, Lock
 from src.llm import call_claude_api
 
+logger = setup_logger()
+
+# Initialize task management
+tasks = {}
+task_lock = Lock()
+
 # Initialize Flask app and SocketIO
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'uploads')
+RESULTS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'results')
+PLOTS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'plots')
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
+os.makedirs(PLOTS_FOLDER, exist_ok=True)
+
+# Initialize components
+config = ConfigManager('config.yaml')
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', logger=True, engineio_logger=True)
+app.config['SECRET_KEY'] = 'secret!'  # Required for session handling
+app.config.update(
+    UPLOAD_FOLDER=UPLOAD_FOLDER,
+    RESULTS_FOLDER=RESULTS_FOLDER,
+    PLOTS_FOLDER=PLOTS_FOLDER,
+    MAX_CONTENT_LENGTH=config.get_setting('data.max_file_size_mb') * 1024 * 1024
+)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    logger=True,
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=100 * 1024 * 1024,  # 100MB
+    always_connect=True,
+    manage_session=True
+)
 app.socketio = socketio  # Attach socketio instance to app for testing
 
 # Setup logging and configuration
 logger = setup_logger()
-config = ConfigManager('config.yaml')
 
-# Configure app
-app.config['MAX_CONTENT_LENGTH'] = config.get_setting('data.max_file_size_mb') * 1024 * 1024
-app.config['UPLOAD_FOLDER'] = config.get_setting('data.upload_folder')
+# Configure app and create required directories
+def init_task_dirs():
+    """Initialize required directories with proper permissions."""
+    try:
+        # Get base directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Define required directories
+        dirs = {
+            'uploads': os.path.join(base_dir, 'data', 'uploads'),
+            'results': os.path.join(base_dir, 'data', 'results'),
+            'plots': os.path.join(base_dir, 'static', 'plots'),
+            'temp': os.path.join(base_dir, 'data', 'temp'),
+            'exports': os.path.join(base_dir, 'data', 'exports')
+        }
+        
+        # Create directories if they don't exist
+        for dir_path in dirs.values():
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                logger.info(f"Created directory: {dir_path}")
+        
+        # Set proper permissions
+        for dir_path in dirs.values():
+            try:
+                # Ensure directory is readable and writable
+                os.chmod(dir_path, 0o755)
+            except Exception as e:
+                logger.warning(f"Could not set permissions for {dir_path}: {str(e)}")
+        
+        logger.info("All required directories initialized successfully")
+        return dirs
+        
+    except Exception as e:
+        logger.error(f"Error initializing directories: {str(e)}")
+        raise
+
+init_task_dirs()
 
 # Initialize components
 data_ingestion = DataIngestion()
+data_processor = DataProcessor()
 data_validation = DataValidation()
 erd_generator = ERDGenerator()
 correlation_analyzer = CorrelationAnalyzer()
+multi_correlation_analyzer = MultiFileCorrelationAnalyzer()
 data_exporter = DataExporter()
 
 # Global state
-tasks = {}
-task_lock = threading.Lock()
+task_lock = Lock()
+
+# Add processed_requests initialization at the top with other globals
+processed_requests: Dict[str, str] = {}
 
 def allowed_file(filename: str) -> bool:
     """Check if file extension is allowed."""
@@ -54,10 +125,46 @@ def home():
     """Render the home page."""
     return render_template('index.html')
 
+@app.route('/preview_file/<filename>')
+def preview_file(filename):
+    try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Read the first few rows of the file
+        if filename.endswith('.csv'):
+            df = pd.read_csv(file_path, nrows=5)
+        elif filename.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file_path, nrows=5)
+        else:
+            return jsonify({'error': 'Unsupported file format'}), 400
+            
+        return jsonify({
+            'columns': df.columns.tolist(),
+            'rows': df.values.tolist()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete_file/<filename>', methods=['DELETE'])
+def delete_file(filename):
+    try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({'message': 'File deleted successfully'})
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """Handle file upload."""
     try:
+        logger.info("Upload request received")
+        
+        # Check if file exists in request
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file part'}), 400
             
@@ -66,192 +173,122 @@ def upload_file():
             return jsonify({'success': False, 'error': 'No selected file'}), 400
             
         if not allowed_file(file.filename):
-            return jsonify({
-                'success': False, 
-                'error': 'File type not allowed'
-            }), 400
-            
-        # Save file
-        filename = secure_filename(file.filename)
-        upload_folder = app.config.get('UPLOAD_FOLDER', 'data/uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        filepath = os.path.join(upload_folder, filename)
+            return jsonify({'success': False, 'error': 'File type not allowed'}), 400
+
+        # Generate unique filename to prevent overwrites
+        base_filename = secure_filename(file.filename)
+        filename = get_unique_filename(
+            os.path.join(app.config['UPLOAD_FOLDER'], base_filename.rsplit('.', 1)[0]),
+            f".{base_filename.rsplit('.', 1)[1]}"
+        )
         
-        # Load and validate data
-        df = data_ingestion.load_file(file)
-        validation_results = data_validation.validate_data(df)
+        # Save the file
+        file.save(filename)
+        logger.info(f"File saved: {filename}")
         
-        # Save file after successful validation
-        file.seek(0)
-        file.save(filepath)
+        # Generate task ID and initialize state
+        task_id = str(uuid.uuid4())
+        config = {
+            'filename': os.path.basename(filename),
+            'filepath': filename
+        }
         
-        # Generate preview, handling NaN values
-        preview_df = df.head()
-        preview = preview_df.replace({np.nan: None}).to_dict(orient='records')
+        with task_lock:
+            tasks[task_id] = {
+                'status': 'Processing',
+                'progress': 0,
+                'filename': os.path.basename(filename),
+                'filepath': filename,
+                'results': {},
+                'config': config
+            }
         
-        return jsonify({
+        # Start processing in background
+        Thread(target=process_data_task, args=(task_id, config)).start()
+        
+        response = {
             'success': True,
-            'filename': filename,
-            'preview': preview,
-            'columns': df.columns.tolist(),
-            'rows': len(df),
-            'validation': validation_results
-        })
+            'filename': os.path.basename(filename),
+            'task_id': task_id,
+            'status': 'Processing'
+        }
+        logger.info(f"Upload successful: {response}")
+        return jsonify(response)
         
     except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
+        logger.error(f"Error in upload_file: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@socketio.on('connect')
-def handle_connect():
-    """Handle WebSocket connection."""
-    logger.info(f"Client connected: {request.sid}")
-    socketio.emit('connected', {'status': 'Connected'})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Handle WebSocket disconnection."""
-    logger.info(f"Client disconnected: {request.sid}")
-
-@socketio.on('subscribe')
-def handle_subscribe(data):
-    """Handle subscription to channels."""
-    logger.info(f"Client {request.sid} subscribed to channels: {data}")
-    return {'status': 'subscribed', 'channel': data.get('channel')}
-
-def get_task_status(task_id: str) -> Dict[str, Any]:
-    """Get task status in a thread-safe way."""
-    with task_lock:
-        if task_id not in tasks:
-            return {'status': 'Failed', 'error': 'Task not found'}
-        return tasks[task_id].copy()
-
-def update_task_status(task_id: str, updates: Dict[str, Any]) -> None:
-    """Update task status in a thread-safe way."""
-    with task_lock:
-        if task_id not in tasks:
-            tasks[task_id] = {}
-        tasks[task_id].update(updates)
-        tasks[task_id]['task_id'] = task_id
-
-def emit_progress(task_id: str) -> None:
-    """Emit progress update for a task."""
-    task_status = get_task_status(task_id)
-    socketio.emit('progress', task_status, namespace='/')
-
-def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
-    """Process data in a background task."""
+@app.route('/upload_multiple', methods=['POST'])
+def upload_multiple_files():
+    """Handle multiple file uploads."""
     try:
-        # Initialize task
-        update_task_status(task_id, {
-            'status': 'Processing',
-            'progress': 0,
-            'results': {
-                'validation': {},
-                'correlations': {},
-                'high_correlations': [],
-                'top_correlations': []
-            },
-            'task_id': task_id
-        })
-        emit_progress(task_id)
-
-        # Load data
-        filename = config.get('filename')
-        if not filename:
-            raise ValueError("No filename provided")
+        logger.info("Multiple file upload request received")
+        
+        # Check if files exist in request
+        if 'files[]' not in request.files:
+            return jsonify({'success': False, 'error': 'No files part'}), 400
             
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {filename}")
+        files = request.files.getlist('files[]')
+        if not files or all(file.filename == '' for file in files):
+            return jsonify({'success': False, 'error': 'No selected files'}), 400
             
-        df = pd.read_csv(file_path)
+        uploaded_files = []
+        task_ids = []
         
-        # Update progress
-        update_task_status(task_id, {
-            'progress': 20,
-            'task_id': task_id
-        })
-        emit_progress(task_id)
+        for file in files:
+            if not allowed_file(file.filename):
+                continue  # Skip files with disallowed extensions
+                
+            # Generate unique filename to prevent overwrites
+            base_filename = secure_filename(file.filename)
+            filename = get_unique_filename(
+                os.path.join(app.config['UPLOAD_FOLDER'], base_filename.rsplit('.', 1)[0]),
+                f".{base_filename.rsplit('.', 1)[1]}"
+            )
+            
+            # Save the file
+            file.save(filename)
+            logger.info(f"File saved: {filename}")
+            
+            # Generate task ID and initialize state
+            task_id = str(uuid.uuid4())
+            config = {
+                'filename': os.path.basename(filename),
+                'filepath': filename
+            }
+            
+            with task_lock:
+                tasks[task_id] = {
+                    'status': 'Processing',
+                    'progress': 0,
+                    'filename': os.path.basename(filename),
+                    'filepath': filename,
+                    'results': {},
+                    'config': config
+                }
+            
+            # Start processing in background
+            Thread(target=process_data_task, args=(task_id, config)).start()
+            
+            uploaded_files.append(os.path.basename(filename))
+            task_ids.append(task_id)
         
-        # Validate data
-        validation_results = data_validation.validate_data(df)
-        update_task_status(task_id, {
-            'results': {'validation': validation_results},
-            'progress': 40,
-            'task_id': task_id
-        })
-        emit_progress(task_id)
+        if not uploaded_files:
+            return jsonify({'success': False, 'error': 'No valid files uploaded'}), 400
         
-        # Analyze correlations
-        correlation_results = correlation_analyzer.analyze(df)
-        logger.info(f"Correlation results: {correlation_results}")  # Debug log
-        
-        updates = {
-            'results': {
-                'validation': validation_results,
-                'correlations': correlation_results.get('correlations', {}),
-                'high_correlations': correlation_results.get('high_correlations', []),
-                'top_correlations': correlation_results.get('top_correlations', [])
-            },
-            'progress': 60,
-            'task_id': task_id
+        response = {
+            'success': True,
+            'filenames': uploaded_files,
+            'task_ids': task_ids,
+            'status': 'Processing'
         }
-        logger.info(f"Updates to send: {updates}")  # Debug log
-        
-        update_task_status(task_id, updates)
-        emit_progress(task_id)
-        
-        # Save correlation matrix plot
-        if correlation_results.get('correlation_matrix_path'):
-            updates['results']['correlation_matrix_path'] = correlation_results['correlation_matrix_path']
-            
-        update_task_status(task_id, updates)
-        emit_progress(task_id)
-        
-        # Generate ERD if requested
-        if config.get('generate_erd', False):
-            try:
-                erd_path = get_plot_path(f'erd_{task_id}')
-                orientation = config.get('erd_orientation', 'LR')  # Default to left-to-right
-                erd_path = erd_generator.generate(df)
-                updates['results']['erd_path'] = erd_path
-                update_task_status(task_id, updates)
-                emit_progress(task_id)
-            except Exception as e:
-                logger.error(f"ERD generation failed: {str(e)}")
-                update_task_status(task_id, {
-                    'status': 'Failed',
-                    'error': str(e),
-                    'progress': 100,
-                    'task_id': task_id
-                })
-                emit_progress(task_id)
-                return
-        
-        update_task_status(task_id, {
-            'progress': 80,
-            'task_id': task_id
-        })
-        emit_progress(task_id)
-        
-        # Mark task as complete
-        update_task_status(task_id, {
-            'status': 'Complete',
-            'progress': 100,
-            'task_id': task_id
-        })
-        emit_progress(task_id)
+        logger.info(f"Multiple upload successful: {response}")
+        return jsonify(response)
         
     except Exception as e:
-        logger.error(f"Task failed: {str(e)}")
-        update_task_status(task_id, {
-            'status': 'Failed',
-            'error': str(e),
-            'progress': 100,
-            'task_id': task_id
-        })
-        emit_progress(task_id)
+        logger.error(f"Error in upload_multiple_files: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/process', methods=['POST'])
 def process_data():
@@ -378,11 +415,7 @@ def download_file(filename):
             app.config.get('UPLOAD_FOLDER', 'data/uploads'),
             'exports'
         )
-        return send_file(
-            os.path.join(export_folder, filename),
-            as_attachment=True,
-            download_name=filename
-        )
+        return send_from_directory(export_folder, filename, as_attachment=True)
         
     except Exception as e:
         logger.error(f"Download failed: {str(e)}")
@@ -425,7 +458,7 @@ def chat():
         {results.get('validation', {})}
         
         Correlation Analysis:
-        {results.get('correlation', {})}
+        {results.get('correlation_analysis', {})}
         
         User Question: {user_message}
         """
@@ -443,20 +476,372 @@ def chat():
         logger.error(f"Chat request failed: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/analyze_multiple', methods=['POST'])
+def analyze_multiple_files():
+    """Analyze correlations between multiple CSV files."""
+    try:
+        files = request.json.get('files', [])
+        if not files:
+            return jsonify({'success': False, 'error': 'No files provided'}), 400
+            
+        # Verify all files exist
+        file_paths = []
+        for filename in files:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(filename))
+            if not os.path.exists(filepath):
+                return jsonify({'success': False, 'error': f"File not found: {filename}"}), 404
+            file_paths.append(filepath)
+            
+        # Generate unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Initialize task
+        update_task_status(task_id, {
+            'status': 'Processing',
+            'progress': 0,
+            'results': {}
+        })
+        
+        # Start processing in background
+        Thread(target=process_multiple_files_task, args=(task_id, file_paths)).start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': 'Analysis started'
+        })
+        
+    except Exception as e:
+        logger.error(f"Multiple file analysis failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def process_data_task(task_id: str, config: Dict[str, Any]) -> None:
+    """Process data in a background task."""
+    try:
+        # Initialize task
+        update_task_status(task_id, {
+            'status': 'Processing',
+            'progress': 0,
+            'results': {
+                'basic_validation': {},
+                'advanced_validation': {},
+                'correlation_analysis': None
+            }
+        })
+        emit_progress(task_id)
+
+        # Load data
+        file_path = config.get('filepath')
+        if not file_path:
+            raise ValueError("No file path provided")
+            
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # Load and validate data
+        try:
+            df = data_ingestion.load_file(file_path)
+            update_task_status(task_id, {'progress': 20})
+            emit_progress(task_id)
+        except Exception as e:
+            logger.error(f"Error loading file: {str(e)}")
+            raise ValueError(f"Error loading file: {str(e)}")
+        
+        # Validation
+        try:
+            validator = DataValidation()
+            validation_results = validator.validate_data(df)
+            update_task_status(task_id, {
+                'progress': 60,
+                'results': validation_results  # Already has basic_validation and advanced_validation
+            })
+            emit_progress(task_id)
+        except Exception as e:
+            logger.error(f"Error in validation: {str(e)}")
+            raise ValueError(f"Error in validation: {str(e)}")
+        
+        # Correlation analysis
+        try:
+            correlation_results = correlation_analyzer.analyze(df)
+            update_task_status(task_id, {
+                'progress': 80,
+                'results': {
+                    **validation_results,  # Include basic_validation and advanced_validation
+                    'correlation_analysis': correlation_results  # Send complete correlation results
+                }
+            })
+            emit_progress(task_id)
+        except Exception as e:
+            logger.error(f"Error in correlation analysis: {str(e)}")
+            raise ValueError(f"Error in correlation analysis: {str(e)}")
+        
+        # Mark task as complete
+        update_task_status(task_id, {
+            'status': 'Complete',
+            'progress': 100
+        })
+        emit_progress(task_id)
+        
+    except Exception as e:
+        logger.error(f"Task failed: {str(e)}")
+        update_task_status(task_id, {
+            'status': 'Failed',
+            'error': str(e),
+            'progress': 100
+        })
+        emit_progress(task_id)
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection."""
+    try:
+        logger.info(f"Client connected: {request.sid}")
+        emit('ready', {'status': 'connected'})
+    except Exception as e:
+        logger.error(f"Error in handle_connect: {str(e)}")
+        emit('error', {'error': str(e)})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection."""
+    try:
+        logger.info(f"Client disconnected: {request.sid}")
+    except Exception as e:
+        logger.error(f"Error in handle_disconnect: {str(e)}")
+
+@socketio.on_error_default
+def default_error_handler(e):
+    logger.error(f"SocketIO error: {str(e)}")
+    emit('error', {'message': str(e)})
+
+@socketio.on('start_validation')
+def handle_start_validation(data):
+    """Handle validation start request."""
+    try:
+        filename = data.get('filename')
+        if not filename:
+            emit('error', {'message': 'No filename provided'})
+            return
+            
+        # Get full file path
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(filepath):
+            emit('error', {'message': f'File {filename} not found'})
+            return
+            
+        # Generate unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Initialize task
+        update_task_status(task_id, {
+            'status': 'Starting',
+            'progress': 0,
+            'results': {}
+        })
+        
+        # Start processing in background
+        Thread(target=process_data_task, args=(task_id, {'filepath': filepath})).start()
+        
+        # Return task ID
+        emit('task_started', {
+            'task_id': task_id,
+            'status': 'Starting'
+        })
+        
+    except Exception as e:
+        logger.error(f'Error starting validation: {str(e)}')
+        emit('error', {'message': str(e)})
+
+def get_task_status(task_id: str) -> Dict[str, Any]:
+    """Get task status in a thread-safe way."""
+    with task_lock:
+        if task_id not in tasks:
+            return {'status': 'Failed', 'error': 'Task not found'}
+        return tasks[task_id].copy()
+
+def clean_for_json(obj):
+    """Clean data for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(x) for x in obj]
+    elif isinstance(obj, (np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.float64, np.float32)):
+        return None if np.isnan(obj) or np.isinf(obj) else float(obj)
+    elif pd.isna(obj):
+        return None
+    elif isinstance(obj, (pd.Timestamp, pd.DatetimeIndex)):
+        return obj.strftime('%Y-%m-%d %H:%M:%S')
+    return obj
+
+def update_task_status(task_id: str, updates: Dict[str, Any]) -> None:
+    """Update task status and emit progress."""
+    try:
+        with task_lock:
+            if task_id not in tasks:
+                tasks[task_id] = {}
+            
+            # Update task status
+            tasks[task_id].update(updates)
+            
+            # Clean data for JSON
+            clean_results = clean_for_json(tasks[task_id].get('results', {}))
+            
+            # Always include task_id in the progress update
+            progress_data = {
+                'task_id': task_id,
+                'status': tasks[task_id].get('status', 'Processing'),
+                'progress': tasks[task_id].get('progress', 0),
+                'results': clean_results,
+            }
+            
+            # Include error if present
+            if 'error' in tasks[task_id]:
+                progress_data['error'] = tasks[task_id]['error']
+            
+            # Emit progress update
+            socketio.emit('progress', progress_data)
+            
+    except Exception as e:
+        logger.error(f"Error updating task status: {str(e)}")
+        socketio.emit('progress', {
+            'task_id': task_id,
+            'status': 'Failed',
+            'error': str(e),
+            'progress': 100
+        })
+
+def emit_progress(task_id: str) -> None:
+    """Emit current progress for a task."""
+    try:
+        with task_lock:
+            if task_id in tasks:
+                # Clean data for JSON
+                clean_results = clean_for_json(tasks[task_id].get('results', {}))
+                
+                progress_data = {
+                    'task_id': task_id,
+                    'status': tasks[task_id].get('status', 'Processing'),
+                    'progress': tasks[task_id].get('progress', 0),
+                    'results': clean_results
+                }
+                
+                # Include error if present
+                if 'error' in tasks[task_id]:
+                    progress_data['error'] = tasks[task_id]['error']
+                
+                socketio.emit('progress', progress_data)
+            else:
+                logger.warning(f"Task {task_id} not found")
+                socketio.emit('progress', {
+                    'task_id': task_id,
+                    'status': 'Failed',
+                    'error': 'Task not found',
+                    'progress': 100
+                })
+                
+    except Exception as e:
+        logger.error(f"Error emitting progress: {str(e)}")
+        socketio.emit('progress', {
+            'task_id': task_id,
+            'status': 'Failed',
+            'error': str(e),
+            'progress': 100
+        })
+
+@socketio.on('subscribe')
+def handle_subscribe(data):
+    """Handle task subscription."""
+    try:
+        task_id = data.get('task_id')
+        if task_id:
+            logger.info(f"Client {request.sid} subscribed to task {task_id}")
+            join_room(task_id)
+            emit_progress(task_id)
+    except Exception as e:
+        logger.error(f"Error in handle_subscribe: {str(e)}")
+        emit('error', {'error': str(e)})
+
+@socketio.on('start_processing')
+def handle_start_processing(data):
+    """Start processing a file when requested."""
+    try:
+        logger.info(f"Start processing request received: {data}")  # Add debug log
+        task_id = data.get('task_id')
+        if not task_id:
+            logger.warning("No task_id provided")  # Add debug log
+            raise ValueError('No task_id provided')
+            
+        with task_lock:
+            if task_id not in tasks:
+                logger.warning(f"Task {task_id} not found")  # Add debug log
+                raise ValueError('Invalid task_id')
+            
+            task = tasks[task_id]
+            if not task.get('config'):
+                logger.warning(f"No config found for task {task_id}")  # Add debug log
+                raise ValueError('No configuration found for task')
+        
+        # Start background task
+        logger.info(f"Starting background task for {task_id}")  # Add debug log
+        socketio.start_background_task(process_data_task, task_id, task['config'])
+        
+    except Exception as e:
+        logger.error(f"Error starting processing: {str(e)}")
+        socketio.emit('error', {
+            'task_id': task_id if task_id else None,
+            'error': str(e)
+        })
+
+def process_multiple_files_task(task_id: str, file_paths: List[str]) -> None:
+    """Process multiple files in a background task."""
+    try:
+        # Update progress
+        update_task_status(task_id, {
+            'status': 'Processing',
+            'progress': 20,
+            'message': 'Analyzing correlations between files'
+        })
+        
+        # Analyze correlations
+        results = multi_correlation_analyzer.analyze_cross_file_correlations(file_paths)
+        
+        if 'error' in results:
+            raise ValueError(results['error'])
+            
+        # Update task with results
+        update_task_status(task_id, {
+            'status': 'Complete',
+            'progress': 100,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Multiple file analysis task failed: {str(e)}")
+        update_task_status(task_id, {
+            'status': 'Failed',
+            'error': str(e),
+            'progress': 100
+        })
+
+@app.route('/remove_file/<filename>', methods=['DELETE'])
+def remove_file(filename):
+    """Remove an uploaded file."""
+    try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(filename))
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'File not found'})
+    except Exception as e:
+        logger.error(f"Error removing file: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
 class WebSocket:
     """WebSocket handler for real-time updates."""
     def receive(self):
         return '{"type": "subscribe", "channel": "progress"}'
-
-def init_task_dirs():
-    """Initialize required directories with proper permissions."""
-    # Create data directories
-    os.makedirs(config.get_setting('data.upload_folder'), exist_ok=True)
-    os.makedirs(config.get_setting('data.export_folder'), exist_ok=True)
-    
-    # Create plots directory for ERD and correlation matrices
-    plots_dir = os.path.join(os.path.dirname(__file__), 'static', 'plots')
-    os.makedirs(plots_dir, exist_ok=True)
 
 def get_unique_filename(base_path: str, extension: str) -> str:
     """Generate a unique filename to avoid conflicts."""
@@ -479,12 +864,55 @@ def get_plot_path(base_name: str, extension: str = '.png') -> str:
     return get_unique_filename(base_path, extension)
 
 # Initialize directories on startup
-init_task_dirs()
+init_task_dirs = None
+
+@socketio.on('process_data')
+def handle_process_data(data):
+    """Handle data processing request via websocket."""
+    try:
+        logger.info(f"Start processing request received: {data}")
+        task_id = data.get('task_id')
+        if not task_id:
+            logger.warning("No task_id provided")
+            raise ValueError('No task_id provided')
+            
+        with task_lock:
+            if task_id not in tasks:
+                logger.warning(f"Task {task_id} not found")
+                raise ValueError('Invalid task_id')
+            
+            task = tasks[task_id]
+            if not task.get('filepath'):
+                logger.warning(f"No filepath found for task {task_id}")
+                raise ValueError('No file path found for task')
+
+        # Update task status
+        update_task_status(task_id, {
+            'status': 'Processing',
+            'progress': 0
+        })
+
+        # Start processing in background thread
+        Thread(target=process_data_task, args=(task_id, task)).start()
+        
+        # Emit initial status
+        emit('processing_started', {
+            'task_id': task_id,
+            'status': 'Processing'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting processing: {str(e)}")
+        emit('error', {
+            'task_id': task_id if 'task_id' in locals() else None,
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     socketio.run(
         app,
         host=config.get_setting('app.host'),
         port=config.get_setting('app.port'),
-        debug=config.get_setting('app.debug')
+        debug=config.get_setting('app.debug'),
+        allow_unsafe_werkzeug=True  # For development only
     )

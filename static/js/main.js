@@ -1,4 +1,40 @@
+import { initializeMultiFileAnalysis } from './correlation.js';
+import { socket } from './socket.js';
+import { showToast } from './utils.js';
+import { getCurrentTaskId } from './state.js';
+
+// Tab functionality
+function showTab(tabName) {
+    // Hide all tabs
+    const tabs = document.querySelectorAll('[id$="-tab"]');
+    tabs.forEach(tab => tab.classList.add('hidden'));
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + '-tab');
+    if (selectedTab) {
+        selectedTab.classList.remove('hidden');
+    }
+    
+    // Update button states
+    const buttons = document.querySelectorAll('[id$="-btn"]');
+    buttons.forEach(button => {
+        if (button.id === tabName + '-btn') {
+            button.classList.add('bg-indigo-700', 'text-white');
+            button.classList.remove('text-gray-700', 'hover:text-gray-900');
+        } else {
+            button.classList.remove('bg-indigo-700', 'text-white');
+            button.classList.add('text-gray-700', 'hover:text-gray-900');
+        }
+    });
+}
+
+// Make showTab available globally
+window.showTab = showTab;
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize multi-file analysis
+    initializeMultiFileAnalysis();
+
     const uploadArea = document.getElementById('upload-area');
     const fileInput = document.getElementById('file-input');
     const validationResults = document.getElementById('validation-results');
@@ -110,16 +146,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function displayResults(data) {
         // Display validation results
-        displayValidationResults(data.validation);
+        if (data.basic_validation) {
+            displayValidationResults(data);
+        }
         
-        // Display correlation results
-        displayCorrelationResults(data.correlations);
+        // Display correlation results - now using nested structure
+        if (data.multicollinearity) {
+            displayCorrelationResults(data.multicollinearity);
+        }
         
-        // Display ERD
-        displayERD(data.erd);
+        // Show results section
+        document.getElementById('results-section')?.classList.remove('hidden');
     }
 
-    function displayValidationResults(validation) {
+    function displayValidationResults(data) {
         // Initialize tooltips
         const tooltips = {};
         document.querySelectorAll('.info-button').forEach(button => {
@@ -153,20 +193,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h5 class="font-medium mb-2">Missing Values</h5>
                 <ul class="space-y-1">
         `;
-        Object.entries(validation.basic_validation.missing_values.total_missing).forEach(([column, count]) => {
-            const percentage = validation.basic_validation.missing_values.missing_percentages[column];
+        Object.entries(data.basic_validation.missing_values.total_missing).forEach(([column, count]) => {
+            const percentage = data.basic_validation.missing_values.missing_percentages[column];
             basicHtml += `<li class="text-sm">${column}: ${count} (${percentage.toFixed(2)}%)</li>`;
         });
         basicHtml += '</ul></div>';
 
         // Negative Values
-        if (Object.keys(validation.basic_validation.negative_values).length > 0) {
+        if (Object.keys(data.basic_validation.negative_values).length > 0) {
             basicHtml += `
                 <div class="bg-white p-4 rounded shadow">
                     <h5 class="font-medium mb-2">Negative Values</h5>
                     <ul class="space-y-1">
             `;
-            Object.entries(validation.basic_validation.negative_values).forEach(([column, count]) => {
+            Object.entries(data.basic_validation.negative_values).forEach(([column, count]) => {
                 basicHtml += `<li class="text-sm">${column}: ${count}</li>`;
             });
             basicHtml += '</ul></div>';
@@ -176,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
         basicHtml += `
             <div class="bg-white p-4 rounded shadow">
                 <h5 class="font-medium mb-2">Duplicates</h5>
-                <p class="text-sm">Total duplicate rows: ${validation.basic_validation.duplicates.total_duplicates}</p>
+                <p class="text-sm">Total duplicate rows: ${data.basic_validation.duplicates.total_duplicates}</p>
             </div>
         `;
 
@@ -184,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('basic-validation-results').innerHTML = basicHtml;
 
         // Get LLM recommendations for basic validation
-        getLLMRecommendation('basic_validation', validation.basic_validation)
+        getLLMRecommendation('basic_validation', data.basic_validation)
             .then(recommendation => {
                 const recDiv = document.getElementById('basic-validation-recommendation');
                 recDiv.textContent = recommendation;
@@ -192,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
         // Display quality scores
-        const qualityScores = validation.advanced_validation.quality_scores;
+        const qualityScores = data.advanced_validation.quality_scores;
         document.getElementById('overall-quality-score').textContent = qualityScores.overall_score;
         document.getElementById('overall-quality-grade').textContent = `Grade ${qualityScores.overall_grade}`;
         
@@ -220,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Display outliers
         let outliersHtml = '<div class="space-y-2">';
-        Object.entries(validation.advanced_validation.outliers).forEach(([col, data]) => {
+        Object.entries(data.advanced_validation.outliers).forEach(([col, data]) => {
             outliersHtml += `
                 <div class="flex justify-between items-center">
                     <span class="text-sm font-medium">${col}</span>
@@ -235,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('outlier-results').innerHTML = outliersHtml;
 
         // Get LLM recommendations for outliers
-        getLLMRecommendation('outliers', validation.advanced_validation.outliers)
+        getLLMRecommendation('outliers', data.advanced_validation.outliers)
             .then(recommendation => {
                 const recDiv = document.getElementById('outlier-recommendation');
                 recDiv.textContent = recommendation;
@@ -244,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Display distributions
         let distributionHtml = '<div class="space-y-4">';
-        Object.entries(validation.advanced_validation.distribution_analysis).forEach(([col, stats]) => {
+        Object.entries(data.advanced_validation.distribution_analysis).forEach(([col, stats]) => {
             distributionHtml += `
                 <div class="border-b pb-2">
                     <h5 class="font-medium mb-2">${col}</h5>
@@ -263,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('distribution-results').innerHTML = distributionHtml;
 
         // Get LLM recommendations for distributions
-        getLLMRecommendation('distributions', validation.advanced_validation.distribution_analysis)
+        getLLMRecommendation('distributions', data.advanced_validation.distribution_analysis)
             .then(recommendation => {
                 const recDiv = document.getElementById('distribution-recommendation');
                 recDiv.textContent = recommendation;
@@ -272,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Display multicollinearity
         let multicollinearityHtml = '<div class="space-y-2">';
-        const multicollinearity = validation.advanced_validation.multicollinearity;
+        const multicollinearity = data.advanced_validation.multicollinearity;
         if (multicollinearity.high_correlations.length > 0) {
             multicollinearityHtml += `
                 <div class="text-sm mb-2">
@@ -368,4 +408,37 @@ document.addEventListener('DOMContentLoaded', function() {
             erdDiagram.appendChild(img);
         }
     }
+
+    // Process button click handler
+    document.getElementById('process-btn')?.addEventListener('click', function() {
+        const taskId = getCurrentTaskId();
+        if (!taskId) {
+            showToast('No file selected for processing', 'error');
+            return;
+        }
+        
+        // Disable process button
+        this.disabled = true;
+        this.classList.add('opacity-50', 'cursor-not-allowed');
+        this.classList.remove('hover:bg-indigo-700');
+        
+        // Show progress section
+        const progressSection = document.getElementById('progress-section');
+        if (progressSection) {
+            progressSection.classList.remove('hidden');
+        }
+        
+        // Reset progress bar
+        updateProgress(0, 'Starting processing...');
+        
+        // Emit start_processing event
+        if (socket && socket.connected) {
+            socket.emit('start_processing', { task_id: taskId });
+        } else {
+            showToast('Not connected to server. Please refresh the page.', 'error');
+        }
+    });
+
+    // Show default tab on load
+    showTab('upload-tab');
 });

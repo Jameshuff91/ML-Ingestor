@@ -12,7 +12,32 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Socket.IO -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Global Configuration -->
+    <script>
+        // Enable Socket.IO debug mode
+        localStorage.debug = '*';
+        
+        // Global app configuration
+        window.appConfig = {
+            socketIO: {
+                path: '/socket.io',
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000,
+                autoConnect: false,
+                forceNew: true,
+                upgrade: true
+            }
+        };
+    </script>
     
     {% block head %}{% endblock %}
 </head>
