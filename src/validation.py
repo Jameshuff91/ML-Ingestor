@@ -17,7 +17,7 @@ class DataValidation:
         self.outlier_sensitivity = config['validation']['outlier_sensitivity']
         self.z_score_threshold = self.outlier_sensitivity['z_score']
         self.iqr_threshold = self.outlier_sensitivity['iqr']
-
+        self.range_validation_config = config['validation']['range_validation']
     def validate_data(self, df, expected_dtypes=None):
         """Perform comprehensive data validation."""
         basic_validation = {
@@ -25,7 +25,8 @@ class DataValidation:
             'negative_values': self.check_negative_values(df),
             'duplicates': self.check_duplicates(df),
             'data_types': self.get_data_types(df),
-            'data_type_validation': self.check_data_types(df, expected_dtypes) if expected_dtypes else "No expected data types provided" # Add data type validation
+            'data_type_validation': self.check_data_types(df, expected_dtypes) if expected_dtypes else "No expected data types provided", # Add data type validation
+            'range_validation': self.check_range_validation(df, self.range_validation_config) # Add range validation, config will be added later
         }
 
         advanced_validation = {
@@ -78,6 +79,75 @@ class DataValidation:
     def get_data_types(self, df):
         """Get data types of all columns."""
         return df.dtypes.astype(str).to_dict()
+
+    def check_data_types(self, df, expected_dtypes):
+        """
+        Ensure columns adhere to expected data types.
+        Args:
+            df (pd.DataFrame): DataFrame to validate.
+            expected_dtypes (dict): Dictionary of column names and expected data types (e.g., {'column_name': 'numeric'}).
+        Returns:
+            dict: Dictionary of columns with data type inconsistencies.
+        """
+        inconsistent_columns = {}
+        for column, expected_dtype in expected_dtypes.items():
+            if column not in df.columns:
+                inconsistent_columns[column] = "Column not found"
+                continue
+
+            actual_dtype = df[column].dtype
+            if expected_dtype == 'numeric':
+                if not pd.api.types.is_numeric_dtype(actual_dtype):
+                    inconsistent_columns[column] = f"Expected numeric, got {actual_dtype}"
+            elif expected_dtype == 'string':
+                if not pd.api.types.is_string_dtype(actual_dtype):
+                    inconsistent_columns[column] = f"Expected string, got {actual_dtype}"
+            elif expected_dtype == 'datetime':
+                if not pd.api.types.is_datetime64_any_dtype(actual_dtype):
+                    inconsistent_columns[column] = f"Expected datetime, got {actual_dtype}"
+            # Add more data type checks as needed
+
+        return inconsistent_columns
+
+    def check_range_validation(self, df, range_config):
+        """
+        Validate if numerical columns are within specified ranges.
+        Args:
+            df (pd.DataFrame): DataFrame to validate.
+            range_config (dict): Dictionary of column names and their valid ranges (e.g., {'column_name': {'min': 0, 'max': 100}}).
+        Returns:
+            dict: Dictionary of columns with range validation issues.
+        """
+        out_of_range_columns = {}
+        for column, ranges in range_config.items():
+            if column not in df.columns:
+                out_of_range_columns[column] = "Column not found"
+                continue
+
+            if pd.api.types.is_numeric_dtype(df[column]):
+                min_val = ranges.get('min')
+                max_val = ranges.get('max')
+
+                if min_val is not None and max_val is not None:
+                    out_of_range_values = df[(df[column] < min_val) | (df[column] > max_val)][column]
+                elif min_val is not None:
+                    out_of_range_values = df[df[column] < min_val][column]
+                elif max_val is not None:
+                    out_of_range_values = df[df[column] > max_val][column]
+                else:
+                    continue # No range specified
+
+                if not out_of_range_values.empty:
+                    out_of_range_columns[column] = {
+                        'min_range': min_val,
+                        'max_range': max_val,
+                        'out_of_range_count': int(out_of_range_values.count()),
+                        'out_of_range_values': out_of_range_values.tolist()
+                    }
+            else:
+                out_of_range_columns[column] = "Column is not numeric"
+
+        return out_of_range_columns
 
     def check_data_types(self, df, expected_dtypes):
         """

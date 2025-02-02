@@ -26,3 +26,11 @@ validation:
   outlier_sensitivity:
     z_score: 3
     iqr: 1.5
+
+  range_validation:
+    column1: # Example column name, replace with actual column names
+      min: 0    # Minimum allowed value
+      max: 100  # Maximum allowed value
+    column2:
+      min: -50
+      max: 50

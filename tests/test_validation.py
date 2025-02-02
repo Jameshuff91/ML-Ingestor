@@ -86,5 +86,27 @@ class TestDataValidation(unittest.TestCase):
         )
         self.assertEqual(numeric_mean['numeric'].iloc[2], 3.0)  # Mean of [1,2,4,5]
 
+    def test_check_range_validation(self):
+        """Test range validation."""
+        # Define range configuration for testing
+        range_config = {
+            'value': {'min': -30, 'max': 40},  # 'value' column should be within -30 and 40
+            'score': {'min': 1, 'max': 3}     # 'score' column should be within 1 and 3
+        }
+        
+        # Test range validation
+        results = self.validation.check_range_validation(self.test_data, range_config)
+        
+        # Assertions
+        self.assertIn('value', results)
+        self.assertEqual(results['value']['out_of_range_count'], 2) # -40 and 50 are out of range
+        self.assertEqual(results['value']['min_range'], -30)
+        self.assertEqual(results['value']['max_range'], 40)
+        self.assertNotIn('score', results) # 'score' should not be in results if no out-of-range values
+        
+        # Test with no range config for a column
+        no_range_results = self.validation.check_range_validation(self.test_data, {})
+        self.assertEqual(no_range_results, {}) # No columns should be flagged
+
 if __name__ == '__main__':
     unittest.main()
