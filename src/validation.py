@@ -14,6 +14,9 @@ class DataValidation:
             config = yaml.safe_load(f)
         self.missing_threshold = config['validation']['missing_threshold']
         self.correlation_threshold = 0.8  # Configurable threshold for multicollinearity
+        self.outlier_sensitivity = config['validation']['outlier_sensitivity']
+        self.z_score_threshold = self.outlier_sensitivity['z_score']
+        self.iqr_threshold = self.outlier_sensitivity['iqr']
 
     def validate_data(self, df):
         """Perform comprehensive data validation."""
@@ -114,13 +117,13 @@ class DataValidation:
         for col in numeric_cols:
             # Z-score method
             z_scores = np.abs(stats.zscore(df[col].dropna()))
-            z_outliers = len(z_scores[z_scores > 3])
+            z_outliers = len(z_scores[z_scores > self.z_score_threshold])
             
             # IQR method
             Q1 = df[col].quantile(0.25)
             Q3 = df[col].quantile(0.75)
             IQR = Q3 - Q1
-            iqr_outliers = len(df[(df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR))])
+            iqr_outliers = len(df[(df[col] < (Q1 - self.iqr_threshold * IQR)) | (df[col] > (Q3 + self.iqr_threshold * IQR))])
             
             outliers[col] = {
                 'z_score_outliers': int(z_outliers),

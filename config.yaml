@@ -6,14 +6,14 @@ app:
 logging:
   level: INFO
   format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-  file: '/logs/app.log'
+  file: 'logs/app.log'
 
 data:
-  upload_folder: '/data/uploads'
-  export_folder: '/data/exports'
-  temp_folder: '/data/temp'
-  results_folder: '/data/results'
-  plots_folder: '/static/plots'
+  upload_folder: 'data/uploads'
+  export_folder: 'data/exports'
+  temp_folder: 'data/temp'
+  results_folder: 'data/results'
+  plots_folder: 'static/plots'
   allowed_extensions:
     - '.csv'
     - '.xlsx'
@@ -23,3 +23,6 @@ data:
 validation:
   missing_threshold: 0.2  # Maximum allowed percentage of missing values
   correlation_threshold: 0.8  # Threshold for high correlation warning
+  outlier_sensitivity:
+    z_score: 3
+    iqr: 1.5
