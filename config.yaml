@@ -34,3 +34,15 @@ validation:
     column2:
       min: -50
       max: 50
+
+  custom_validation_rules:
+    rule_negative_value_check:
+      description: "Value should not be negative"
+      column: "value"
+      type: "expression"
+      expression: "row['value'] >= 0" # Example expression to check for non-negative values
+    rule_score_range_check:
+      description: "Score should be between 1 and 4"
+      column: "score"
+      type: "expression"
+      expression: "(row['score'] >= 1) & (row['score'] <= 4)"

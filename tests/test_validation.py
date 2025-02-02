@@ -108,5 +108,40 @@ class TestDataValidation(unittest.TestCase):
         no_range_results = self.validation.check_range_validation(self.test_data, {})
         self.assertEqual(no_range_results, {}) # No columns should be flagged
 
+    def test_check_custom_validation_rules(self):
+        """Test custom validation rules."""
+        # Define custom rules config for testing
+        custom_rules_config = {
+            'rule_non_negative_value': {
+                'description': "Value should not be negative",
+                'column': "value",
+                'type': "expression",
+                'expression': "row['value'] >= 0"
+            },
+            'rule_score_between_1_and_4': {
+                'description': "Score should be between 1 and 4",
+                'column': "score",
+                'type': "expression",
+                'expression': "(row['score'] >= 1) & (row['score'] <= 4)"
+            },
+            'rule_invalid_config': {
+                'description': "Invalid rule config",
+                'column': "value",
+                'type': "invalid_type", # Invalid rule type
+                'expression': "row['value'] >= 0"
+            }
+        }
+        
+        # Test custom validation rules
+        results = self.validation.check_custom_validation_rules(self.test_data, custom_rules_config)
+        
+        # Assertions
+        self.assertIn('rule_non_negative_value', results)
+        self.assertEqual(results['rule_non_negative_value']['violated_count'], 2) # -20 and -40 are negative
+        self.assertEqual(results['rule_non_negative_value']['expression'], "row['value'] >= 0")
+        self.assertNotIn('rule_score_between_1_and_4', results) # No violations for score range
+        self.assertIn('rule_invalid_config', results)
+        self.assertIn("Invalid rule configuration", results['rule_invalid_config']) # Invalid rule config error message
+
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,8 @@ class DataValidation:
         self.z_score_threshold = self.outlier_sensitivity['z_score']
         self.iqr_threshold = self.outlier_sensitivity['iqr']
         self.range_validation_config = config['validation']['range_validation']
+        self.custom_rules_config = config['validation']['custom_validation_rules']
+        self.range_validation_config = config['validation']['range_validation']
     def validate_data(self, df, expected_dtypes=None):
         """Perform comprehensive data validation."""
         basic_validation = {
@@ -26,7 +28,8 @@ class DataValidation:
             'duplicates': self.check_duplicates(df),
             'data_types': self.get_data_types(df),
             'data_type_validation': self.check_data_types(df, expected_dtypes) if expected_dtypes else "No expected data types provided", # Add data type validation
-            'range_validation': self.check_range_validation(df, self.range_validation_config) # Add range validation, config will be added later
+            'range_validation': self.check_range_validation(df, self.range_validation_config), # Add range validation
+            'custom_rule_validation': self.check_custom_validation_rules(df, self.custom_rules_config) # Add custom rule validation
         }
 
         advanced_validation = {
@@ -149,35 +152,131 @@ class DataValidation:
 
         return out_of_range_columns
 
-    def check_data_types(self, df, expected_dtypes):
+    
+    def check_custom_validation_rules(self, df, custom_rules_config):
         """
-        Ensure columns adhere to expected data types.
+        Apply custom validation rules defined in the configuration.
         Args:
             df (pd.DataFrame): DataFrame to validate.
-            expected_dtypes (dict): Dictionary of column names and expected data types (e.g., {'column_name': 'numeric'}).
+            custom_rules_config (dict): Dictionary of custom validation rules.
         Returns:
-            dict: Dictionary of columns with data type inconsistencies.
+            dict: Dictionary of columns with custom validation rule violations.
         """
-        inconsistent_columns = {}
-        for column, expected_dtype in expected_dtypes.items():
+        violated_rules = {}
+        for rule_name, rule_details in custom_rules_config.items():
+            column = rule_details.get('column')
+            rule_type = rule_details.get('type')
+            expression = rule_details.get('expression')
+            script = rule_details.get('script')
+
             if column not in df.columns:
-                inconsistent_columns[column] = "Column not found"
+                violated_rules[rule_name] = "Column not found"
                 continue
 
-            actual_dtype = df[column].dtype
-            if expected_dtype == 'numeric':
-                if not pd.api.types.is_numeric_dtype(actual_dtype):
-                    inconsistent_columns[column] = f"Expected numeric, got {actual_dtype}"
-            elif expected_dtype == 'string':
-                if not pd.api.types.is_string_dtype(actual_dtype):
-                    inconsistent_columns[column] = f"Expected string, got {actual_dtype}"
-            elif expected_dtype == 'datetime':
-                if not pd.api.types.is_datetime64_any_dtype(actual_dtype):
-                    inconsistent_columns[column] = f"Expected datetime, got {actual_dtype}"
-            # Add more data type checks as needed
+            if rule_type == 'expression' and expression:
+                try:
+                    # Evaluate expression using DataFrame.apply and convert result to boolean
+                    rule_result = df.apply(lambda row: pd.eval(expression, local_dict={'row': row}), axis=1) == False
+                    violated_data = df[rule_result]
 
-        return inconsistent_columns
+                    if not violated_data.empty:
+                        violated_rules[rule_name] = {
+                            'rule_description': rule_details.get('description', rule_name),
+                            'violated_count': len(violated_data),
+                            'violated_rows_indices': violated_data.index.tolist(),
+                            'expression': expression
+                        }
 
+                except Exception as e:
+                    violated_rules[rule_name] = f"Error evaluating expression: {e}"
+            elif rule_type == 'script' and script:
+                try:
+                    # Execute script (not implemented for security reasons, consider using expression instead)
+                    violated_rules[rule_name] = "Script execution is not supported for security reasons. Use 'expression' type instead."
+                except Exception as e:
+                    violated_rules[rule_name] = f"Error executing script: {e}"
+            else:
+                violated_rules[rule_name] = "Invalid rule configuration: type or expression/script missing"
+
+        return violated_rules
+
+    def suggest_imputation_method(self, df, column):
+        """Suggest an appropriate imputation method for a column."""
+        if pd.api.types.is_numeric_dtype(df[column]):
+            return 'mean' if df[column].skew() < 1 else 'median'
+        else:
+            return 'mode'
+
+    def impute_missing_values(self, df, method='auto'):
+        """Impute missing values in the dataset."""
+        df_imputed = df.copy()
+
+        for column in df.columns:
+            if df[column].isnull().any():
+                impute_method = method if method != 'auto' else self.suggest_imputation_method(df, column)
+
+                if pd.api.types.is_numeric_dtype(df[column]):
+                    if impute_method == 'mean':
+                        df_imputed[column] = df_imputed[column].fillna(df_imputed[column].mean())
+                    elif impute_method == 'median':
+                        df_imputed[column] = df_imputed[column].fillna(df_imputed[column].median())
+                    else:
+                        df_imputed[column] = df_imputed[column].fillna(df_imputed[column].mode()[0])
+                else:
+                    # For non-numeric columns, always use mode
+                    mode_value = df_imputed[column].mode()[0] if not df_imputed[column].mode().empty else "Unknown"
+                    df_imputed[column] = df_imputed[column].fillna(mode_value)
+
+                self.logger.info(f"Imputed missing values in column '{column}' using {impute_method}")
+
+        return df_imputed
+
+    def detect_outliers(self, df):
+        """
+        Apply custom validation rules defined in the configuration.
+                Args:
+                    df (pd.DataFrame): DataFrame to validate.
+                    custom_rules_config (dict): Dictionary of custom validation rules.
+                Returns:
+                    dict: Dictionary of columns with custom validation rule violations.
+        """
+        violated_rules = {}
+        for rule_name, rule_details in custom_rules_config.items():
+            column = rule_details.get('column')
+            rule_type = rule_details.get('type')
+            expression = rule_details.get('expression')
+            script = rule_details.get('script')
+
+            if column not in df.columns:
+                violated_rules[rule_name] = "Column not found"
+                continue
+
+            if rule_type == 'expression' and expression:
+                try:
+                    # Evaluate expression using DataFrame.apply and convert result to boolean
+                    rule_result = df.apply(lambda row: pd.eval(expression, local_dict={'row': row}), axis=1) == False
+                    violated_data = df[rule_result]
+
+                    if not violated_data.empty:
+                        violated_rules[rule_name] = {
+                            'rule_description': rule_details.get('description', rule_name),
+                            'violated_count': len(violated_data),
+                            'violated_rows_indices': violated_data.index.tolist(),
+                            'expression': expression
+                        }
+
+                except Exception as e:
+                    violated_rules[rule_name] = f"Error evaluating expression: {e}"
+            elif rule_type == 'script' and script:
+                try:
+                    # Execute script (not implemented for security reasons, consider using expression instead)
+                    violated_rules[rule_name] = "Script execution is not supported for security reasons. Use 'expression' type instead."
+                except Exception as e:
+                    violated_rules[rule_name] = f"Error executing script: {e}"
+            else:
+                violated_rules[rule_name] = "Invalid rule configuration: type or expression/script missing"
+
+        return violated_rules
 
     def suggest_imputation_method(self, df, column):
         """Suggest an appropriate imputation method for a column."""
