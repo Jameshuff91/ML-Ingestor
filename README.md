@@ -1,6 +1,6 @@
 DataFlow Assistant
 Introduction
-DataFlow Assistant is a user-friendly application designed to streamline the process of data ingestion and preliminary data science steps necessary for model development. With an intuitive frontend interface, users can easily connect to data sources, including the ability to drag and drop CSV files. The application performs essential data validation tasks and allows users to interact and make decisions during the data processing workflow.
+DataFlow Assistant is a user-friendly application designed to streamline the process of data ingestion and preliminary data science steps necessary for model development. The frontend UI is built using JavaScript and managed with npm, while the backend is developed using the Flask Python framework. With an intuitive frontend interface, users can easily connect to data sources, including the ability to drag and drop CSV files. The application performs essential data validation tasks and allows users to interact and make decisions during the data processing workflow.
 
 Features
 Intuitive User Interface: Easy-to-use frontend for connecting data sources, with drag-and-drop functionality for CSV files.
